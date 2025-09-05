@@ -1,0 +1,1 @@
+ALTER TABLE "scripts" ALTER COLUMN "seller_id" SET NOT NULL;

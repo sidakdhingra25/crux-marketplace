@@ -89,9 +89,17 @@ export default function SubmitScriptPage() {
   const [features, setFeatures] = useState([{ id: 1, text: "" }])
   const [requirements, setRequirements] = useState([{ id: 1, text: "" }])
   const [tags, setTags] = useState([{ id: 1, text: "" }])
-  const [media, setMedia] = useState({
+  const [media, setMedia] = useState<{
+    images: string[]
+    videos: string[]
+    screenshots: string[]
+    coverImage: string | null
+    thumbnail: string | null
+  }>({
     images: [],
     videos: [],
+    screenshots: [],
+    coverImage: null,
     thumbnail: null,
   })
 
@@ -158,6 +166,113 @@ export default function SubmitScriptPage() {
     setTags(tags.map((t) => (t.id === id ? { ...t, text } : t)))
   }
 
+  const handleFileUpload = async (file: File, type: "image" | "video") => {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("type", type)
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Upload failed")
+      }
+
+      const result = await response.json()
+      return result.url
+    } catch (error) {
+      console.error("Upload error:", error)
+      alert(`Failed to upload ${type}: ${error instanceof Error ? error.message : "Unknown error"}`)
+      return null
+    }
+  }
+
+  const handleScreenshotUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    const newScreenshots: string[] = []
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (media.screenshots.length + newScreenshots.length >= 10) {
+        alert("Maximum 10 screenshots allowed")
+        break
+      }
+
+      const url = await handleFileUpload(file, "image")
+      if (url) {
+        newScreenshots.push(url)
+      }
+    }
+
+    if (newScreenshots.length > 0) {
+      setMedia(prev => ({
+        ...prev,
+        screenshots: [...prev.screenshots, ...newScreenshots]
+      }))
+    }
+  }
+
+  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    const file = files[0]
+    const url = await handleFileUpload(file, "image")
+    if (url) {
+      setMedia(prev => ({
+        ...prev,
+        coverImage: url
+      }))
+    }
+  }
+
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    const newVideos: string[] = []
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const url = await handleFileUpload(file, "video")
+      if (url) {
+        newVideos.push(url)
+      }
+    }
+
+    if (newVideos.length > 0) {
+      setMedia(prev => ({
+        ...prev,
+        videos: [...prev.videos, ...newVideos]
+      }))
+    }
+  }
+
+  const removeScreenshot = (index: number) => {
+    setMedia(prev => ({
+      ...prev,
+      screenshots: prev.screenshots.filter((_, i) => i !== index)
+    }))
+  }
+
+  const removeVideo = (index: number) => {
+    setMedia(prev => ({
+      ...prev,
+      videos: prev.videos.filter((_, i) => i !== index)
+    }))
+  }
+
+  const removeCoverImage = () => {
+    setMedia(prev => ({
+      ...prev,
+      coverImage: null
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -175,10 +290,11 @@ export default function SubmitScriptPage() {
         features: features.filter((f) => f.text.trim()).map((f) => f.text.trim()),
         requirements: requirements.filter((r) => r.text.trim()).map((r) => r.text.trim()),
         tags: tags.filter((t) => t.text.trim()).map((t) => t.text.trim()),
-        images: [], // Will be populated with uploaded images
-        videos: [], // Will be populated with uploaded videos
+        images: media.images,
+        videos: media.videos,
+        screenshots: media.screenshots,
+        cover_image: media.coverImage,
         status: "pending" as const,
-        last_updated: new Date().toISOString(),
       }
 
       const response = await fetch("/api/scripts", {
@@ -685,21 +801,126 @@ export default function SubmitScriptPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div>
+                      <Label className="text-white font-medium">Cover Image *</Label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverImageUpload}
+                        className="hidden"
+                        id="cover-image-upload"
+                      />
+                      <label
+                        htmlFor="cover-image-upload"
+                        className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer block"
+                      >
+                        <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-400">Upload cover image</p>
+                        <p className="text-sm text-gray-500 mt-2">PNG, JPG up to 5MB (will be displayed on scripts listing)</p>
+                      </label>
+                      
+                      {/* Display uploaded cover image */}
+                      {media.coverImage && (
+                        <div className="mt-4">
+                          <div className="relative group">
+                            <img
+                              src={media.coverImage}
+                              alt="Cover image"
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={removeCoverImage}
+                              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
                       <Label className="text-white font-medium">Screenshots *</Label>
-                      <div className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleScreenshotUpload}
+                        className="hidden"
+                        id="screenshot-upload"
+                      />
+                      <label
+                        htmlFor="screenshot-upload"
+                        className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer block"
+                      >
                         <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-400">Upload script screenshots</p>
                         <p className="text-sm text-gray-500 mt-2">PNG, JPG up to 5MB each (max 10 images)</p>
-                      </div>
+                      </label>
+                      
+                      {/* Display uploaded screenshots */}
+                      {media.screenshots.length > 0 && (
+                        <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {media.screenshots.map((screenshot, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={screenshot}
+                                alt={`Screenshot ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeScreenshot(index)}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div>
                       <Label className="text-white font-medium">Demo Videos (Optional)</Label>
-                      <div className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        multiple
+                        accept="video/*"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                        id="video-upload"
+                      />
+                      <label
+                        htmlFor="video-upload"
+                        className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer block"
+                      >
                         <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-400">Upload demo videos</p>
                         <p className="text-sm text-gray-500 mt-2">MP4, MOV up to 50MB each</p>
-                      </div>
+                      </label>
+                      
+                      {/* Display uploaded videos */}
+                      {media.videos.length > 0 && (
+                        <div className="mt-4 space-y-4">
+                          {media.videos.map((video, index) => (
+                            <div key={index} className="relative group">
+                              <video
+                                src={video}
+                                controls
+                                className="w-full rounded-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeVideo(index)}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -752,9 +973,40 @@ export default function SubmitScriptPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="aspect-video bg-gray-700 rounded-lg flex items-center justify-center">
-                        <ImageIcon className="h-12 w-12 text-gray-500" />
-                      </div>
+                      {/* Screenshots Preview */}
+                      {media.screenshots.length > 0 ? (
+                        <div className="aspect-video bg-gray-700 rounded-lg overflow-hidden">
+                          <img
+                            src={media.screenshots[0]}
+                            alt="Main screenshot"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-video bg-gray-700 rounded-lg flex items-center justify-center">
+                          <ImageIcon className="h-12 w-12 text-gray-500" />
+                        </div>
+                      )}
+                      
+                      {/* Additional Screenshots */}
+                      {media.screenshots.length > 1 && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {media.screenshots.slice(1, 4).map((screenshot, index) => (
+                            <div key={index} className="aspect-square bg-gray-700 rounded-lg overflow-hidden">
+                              <img
+                                src={screenshot}
+                                alt={`Screenshot ${index + 2}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ))}
+                          {media.screenshots.length > 4 && (
+                            <div className="aspect-square bg-gray-700 rounded-lg flex items-center justify-center">
+                              <span className="text-gray-400 text-sm">+{media.screenshots.length - 4}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div>
                         <h3 className="text-white font-bold text-lg">{formData.title || "Your Script Title"}</h3>

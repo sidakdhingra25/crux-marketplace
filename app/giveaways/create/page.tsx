@@ -30,6 +30,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
+import FileUpload from "@/components/file-upload"
 
 // Animated background particles
 const AnimatedParticles = () => {
@@ -88,7 +89,13 @@ export default function CreateGiveawayPage() {
   const [media, setMedia] = useState({
     images: [],
     videos: [],
+    coverImage: null,
     thumbnail: null,
+  })
+  const [selectedFiles, setSelectedFiles] = useState({
+    coverImage: null as File | null,
+    images: [] as File[],
+    videos: [] as File[],
   })
 
   const [errors, setErrors] = useState({})
@@ -133,30 +140,85 @@ export default function CreateGiveawayPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const payload = {
-      giveaway: {
-        title: formData.title,
-        description: formData.description,
-        total_value: formData.value,
-        category: formData.category,
-        end_date: formData.endDate,
-        max_entries: formData.maxEntries ? Number(formData.maxEntries) : null,
-        difficulty: formData.difficulty,
-        featured: formData.featured,
-        auto_announce: formData.autoAnnounce,
-        creator_name: "Admin",
-        creator_email: "admin@example.com",
-        images: media.images || [],
-        videos: media.videos || [],
-        tags: [],
-        rules: [],
-        status: "active",
-      },
-      requirements,
-      prizes,
-    };
-
     try {
+      // Upload cover image if selected
+      let coverImageUrl = ""
+      if (selectedFiles.coverImage) {
+        const formData = new FormData()
+        formData.append("file", selectedFiles.coverImage)
+        
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json()
+          coverImageUrl = uploadResult.url
+        } else {
+          alert("Failed to upload cover image")
+          return
+        }
+      }
+
+      // Upload images if selected
+      const imageUrls = []
+      for (const file of selectedFiles.images) {
+        const formData = new FormData()
+        formData.append("file", file)
+        
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json()
+          imageUrls.push(uploadResult.url)
+        }
+      }
+
+      // Upload videos if selected
+      const videoUrls = []
+      for (const file of selectedFiles.videos) {
+        const formData = new FormData()
+        formData.append("file", file)
+        
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json()
+          videoUrls.push(uploadResult.url)
+        }
+      }
+
+      const payload = {
+        giveaway: {
+          title: formData.title,
+          description: formData.description,
+          total_value: formData.value,
+          category: formData.category,
+          end_date: formData.endDate,
+          max_entries: formData.maxEntries ? Number(formData.maxEntries) : null,
+          difficulty: formData.difficulty,
+          featured: formData.featured,
+          auto_announce: formData.autoAnnounce,
+          creator_name: "Admin",
+          creator_email: "admin@example.com",
+          images: imageUrls,
+          videos: videoUrls,
+          cover_image: coverImageUrl,
+          tags: [],
+          rules: [],
+          status: "active",
+        },
+        requirements,
+        prizes,
+      };
+
       const res = await fetch('/api/giveaways', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,7 +227,25 @@ export default function CreateGiveawayPage() {
 
       if (res.ok) {
         alert('Giveaway created successfully!');
-        // Optionally reset form or redirect
+        // Reset form
+        setFormData({
+          title: "",
+          description: "",
+          value: "",
+          category: "",
+          endDate: "",
+          maxEntries: "",
+          difficulty: "Easy",
+          featured: false,
+          autoAnnounce: true,
+        })
+        setSelectedFiles({
+          coverImage: null,
+          images: [],
+          videos: [],
+        })
+        setRequirements([{ id: 1, type: "discord", description: "Join our Discord server", points: 1, required: true }])
+        setPrizes([{ id: 1, name: "", description: "", value: "", position: 1 }])
       } else {
         const error = await res.json();
         alert('Error: ' + (error.error || 'Failed to create giveaway'));
@@ -176,6 +256,52 @@ export default function CreateGiveawayPage() {
   };
 
   const totalPoints = requirements.reduce((sum, req) => sum + req.points, 0)
+
+  const handleFileUpload = async (file: File, type: "image" | "video") => {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("type", type)
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Upload failed")
+      }
+
+      const result = await response.json()
+      return result.url
+    } catch (error) {
+      console.error("Upload error:", error)
+      alert(`Failed to upload ${type}: ${error instanceof Error ? error.message : "Unknown error"}`)
+      return null
+    }
+  }
+
+  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    const file = files[0]
+    const url = await handleFileUpload(file, "image")
+    if (url) {
+      setMedia(prev => ({
+        ...prev,
+        coverImage: url
+      }))
+    }
+  }
+
+  const removeCoverImage = () => {
+    setMedia(prev => ({
+      ...prev,
+      coverImage: null
+    }))
+  }
 
   return (
     <>
@@ -601,6 +727,17 @@ export default function CreateGiveawayPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div>
+                      <Label className="text-white font-medium mb-2 block">Cover Image *</Label>
+                      <FileUpload
+                        onFileSelect={(file) => setSelectedFiles(prev => ({ ...prev, coverImage: file }))}
+                        onFileRemove={() => setSelectedFiles(prev => ({ ...prev, coverImage: null }))}
+                        selectedFile={selectedFiles.coverImage}
+                        accept="image/*"
+                        maxSize={5}
+                      />
+                    </div>
+
+                    <div>
                       <Label className="text-white font-medium">Thumbnail Image *</Label>
                       <div className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-yellow-500 transition-colors cursor-pointer">
                         <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -610,21 +747,35 @@ export default function CreateGiveawayPage() {
                     </div>
 
                     <div>
-                      <Label className="text-white font-medium">Additional Images</Label>
-                      <div className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-yellow-500 transition-colors cursor-pointer">
-                        <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-400">Upload additional images</p>
-                        <p className="text-sm text-gray-500 mt-2">Multiple files supported</p>
-                      </div>
+                      <Label className="text-white font-medium mb-2 block">Additional Images</Label>
+                      <FileUpload
+                        onFileSelect={(file) => setSelectedFiles(prev => ({ ...prev, images: [...prev.images, file] }))}
+                        onFileRemove={() => setSelectedFiles(prev => ({ ...prev, images: prev.images.slice(0, -1) }))}
+                        selectedFile={selectedFiles.images.length > 0 ? selectedFiles.images[selectedFiles.images.length - 1] : null}
+                        accept="image/*"
+                        maxSize={5}
+                      />
+                      {selectedFiles.images.length > 0 && (
+                        <div className="mt-2 text-sm text-gray-400">
+                          {selectedFiles.images.length} image(s) selected
+                        </div>
+                      )}
                     </div>
 
                     <div>
-                      <Label className="text-white font-medium">Videos (Optional)</Label>
-                      <div className="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-yellow-500 transition-colors cursor-pointer">
-                        <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-400">Upload promotional videos</p>
-                        <p className="text-sm text-gray-500 mt-2">MP4, MOV up to 50MB</p>
-                      </div>
+                      <Label className="text-white font-medium mb-2 block">Videos (Optional)</Label>
+                      <FileUpload
+                        onFileSelect={(file) => setSelectedFiles(prev => ({ ...prev, videos: [...prev.videos, file] }))}
+                        onFileRemove={() => setSelectedFiles(prev => ({ ...prev, videos: prev.videos.slice(0, -1) }))}
+                        selectedFile={selectedFiles.videos.length > 0 ? selectedFiles.videos[selectedFiles.videos.length - 1] : null}
+                        accept="video/*"
+                        maxSize={50}
+                      />
+                      {selectedFiles.videos.length > 0 && (
+                        <div className="mt-2 text-sm text-gray-400">
+                          {selectedFiles.videos.length} video(s) selected
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

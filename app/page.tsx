@@ -9,11 +9,13 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
+import { useSession, signIn } from "next-auth/react"
 
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const { status } = useSession()
   const heroRef = useRef(null)
   const categoriesRef = useRef(null)
   const giveawaysRef = useRef(null)
@@ -399,18 +401,18 @@ export default function HomePage() {
                   transition={{ duration: 1, delay: 0.6 }}
                   className="flex flex-col sm:flex-row gap-6 justify-center items-center"
                 >
-                  <motion.div
-                    whileHover={{ scale: 1.05, boxShadow: "0 25px 50px rgba(249, 115, 22, 0.4)" }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Link href="/scripts">
-                      <Button
-                        size="lg"
-                        className="bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500 hover:from-orange-600 hover:via-yellow-500 hover:to-orange-600 text-black font-bold px-10 py-4 text-xl rounded-full shadow-2xl transition-all duration-300"
-                      >
-                        Explore Scripts
+                  <motion.div whileHover={{ scale: 1.05, boxShadow: "0 25px 50px rgba(249, 115, 22, 0.4)" }} whileTap={{ scale: 0.95 }}>
+                    {status === "authenticated" ? (
+                      <Link href="/scripts">
+                        <Button size="lg" className="bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500 hover:from-orange-600 hover:via-yellow-500 hover:to-orange-600 text-black font-bold px-10 py-4 text-xl rounded-full shadow-2xl transition-all duration-300">
+                          Explore Scripts
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button size="lg" className="bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500 hover:from-orange-600 hover:via-yellow-500 hover:to-orange-600 text-black font-bold px-10 py-4 text-xl rounded-full shadow-2xl transition-all duration-300" onClick={() => signIn("discord")}> 
+                        Login to Explore
                       </Button>
-                    </Link>
+                    )}
                   </motion.div>
 
                   <motion.div

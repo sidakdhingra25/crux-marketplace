@@ -15,9 +15,18 @@ import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
+import AdCard, { useRandomAds } from "@/components/ad-card"
 
-// Animated background particles
+// Animated background particles - Client only to avoid hydration issues
 const AnimatedParticles = () => {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  
+  if (!mounted) return null
+  
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden">
       {[...Array(5)].map((_, i) => (
@@ -25,19 +34,19 @@ const AnimatedParticles = () => {
           key={i}
           className="absolute w-1 h-1 bg-orange-500/30 rounded-full"
           animate={{
-            x: [0, Math.random() * 200 - 100],
-            y: [0, Math.random() * 200 - 100],
+            x: [0, (i * 40) - 100],
+            y: [0, (i * 30) - 75],
             opacity: [0, 1, 0],
             scale: [0, 1, 0],
           }}
           transition={{
-            duration: Math.random() * 8 + 12,
+            duration: 15 + (i * 2),
             repeat: Number.POSITIVE_INFINITY,
-            delay: Math.random() * 2,
+            delay: i * 0.5,
           }}
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
+            left: `${20 + (i * 15)}%`,
+            top: `${25 + (i * 12)}%`,
           }}
         />
       ))}
@@ -55,7 +64,7 @@ export default function ScriptsPage() {
   const scriptsInView = useInView(scriptsRef, { once: true })
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [priceRange, setPriceRange] = useState([0, 100])
+  const [priceRange, setPriceRange] = useState([0, 10000])
   const [sortBy, setSortBy] = useState("popular")
   const categoryParam = searchParams.get("category") ?? ""
 
@@ -71,153 +80,80 @@ export default function ScriptsPage() {
   const [onSaleOnly, setOnSaleOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
-  const allScripts = [
-    {
-      id: 1,
-      title: "Advanced Banking System",
-      description:
-        "Complete banking solution with ATMs, loans, transfers, and multi-bank support. Features transaction history and admin panel.",
-      price: 25.99,
-      originalPrice: 35.99,
-      rating: 4.8,
-      reviews: 124,
-      image: "/cat.jpg",
-      category: "economy",
-      categoryName: "Economy",
-      seller: "ScriptMaster",
-      discount: 28,
-      framework: "QBCore",
-      priceCategory: "Standard",
-      tags: ["Banking", "Economy", "ATM", "Loans"],
-      lastUpdated: "2024-01-08",
-    },
-    {
-      id: 2,
-      title: "Realistic Car Dealership",
-      description:
-        "Full featured car dealership with test drives, financing options, showroom management and sales tracking.",
-      price: 19.99,
-      rating: 4.9,
-      reviews: 89,
-      image: "/cat.jpg",
-      category: "vehicles",
-      categoryName: "Vehicles",
-      seller: "AutoDev",
-      discount: 0,
-      framework: "ESX",
-      priceCategory: "Standard",
-      tags: ["Vehicles", "Dealership", "Finance"],
-      lastUpdated: "2024-01-07",
-    },
-    {
-      id: 3,
-      title: "Police MDT System",
-      description:
-        "Mobile Data Terminal for law enforcement with warrant system, BOLO alerts, and comprehensive officer management.",
-      price: 15.99,
-      originalPrice: 22.99,
-      rating: 4.7,
-      reviews: 156,
-      image: "/cat.jpg",
-      category: "jobs",
-      categoryName: "Jobs",
-      seller: "LawEnforcer",
-      discount: 30,
-      framework: "QBCore",
-      priceCategory: "Standard",
-      tags: ["Police", "MDT", "Law Enforcement"],
-      lastUpdated: "2024-01-06",
-    },
-    {
-      id: 4,
-      title: "Hospital Management Pro",
-      description:
-        "Complete medical system with patient records, billing, emergency services, and integrated pharmacy system.",
-      price: 29.99,
-      rating: 4.6,
-      reviews: 67,
-      image: "/cat.jpg",
-      category: "medical",
-      categoryName: "Medical",
-      seller: "MedScript",
-      discount: 0,
-      framework: "Standalone",
-      priceCategory: "Standard",
-      tags: ["Medical", "Hospital", "Healthcare"],
-      lastUpdated: "2024-01-05",
-    },
-    {
-      id: 5,
-      title: "Real Estate Empire",
-      description:
-        "Property buying, selling, and renting system with interior customization and comprehensive property management tools.",
-      price: 22.99,
-      originalPrice: 29.99,
-      rating: 4.5,
-      reviews: 93,
-      image: "/cat.jpg",
-      category: "housing",
-      categoryName: "Housing",
-      seller: "PropertyPro",
-      discount: 23,
-      framework: "QBCore",
-      priceCategory: "Standard",
-      tags: ["Housing", "Real Estate", "Property"],
-      lastUpdated: "2024-01-04",
-    },
-    {
-      id: 6,
-      title: "Budget Inventory System",
-      description: "Simple but effective inventory system with basic drag & drop functionality and item management.",
-      price: 8.99,
-      rating: 4.2,
-      reviews: 201,
-      image: "/cat.jpg",
-      category: "core",
-      categoryName: "Core",
-      seller: "BudgetDev",
-      discount: 0,
-      framework: "ESX",
-      priceCategory: "Budget",
-      tags: ["Inventory", "Core", "Items"],
-      lastUpdated: "2024-01-03",
-    },
-    {
-      id: 7,
-      title: "Premium Police Pack",
-      description: "Complete police package with MDT, evidence system, jail management, and officer tools.",
-      price: 45.99,
-      originalPrice: 59.99,
-      rating: 4.9,
-      reviews: 78,
-      image: "/cat.jpg",
-      category: "police",
-      categoryName: "Police",
-      seller: "LawEnforcer",
-      discount: 23,
-      framework: "QBCore",
-      priceCategory: "Premium",
-      tags: ["Police", "MDT", "Evidence", "Jail"],
-      lastUpdated: "2024-01-09",
-    },
-    {
-      id: 8,
-      title: "Server Admin Tools",
-      description: "Comprehensive admin toolkit with player management, server monitoring, and moderation features.",
-      price: 35.99,
-      rating: 4.4,
-      reviews: 156,
-      image: "/cat.jpg",
-      category: "utilities",
-      categoryName: "Utilities",
-      seller: "AdminPro",
-      discount: 0,
-      framework: "Standalone",
-      priceCategory: "Premium",
-      tags: ["Admin", "Tools", "Management"],
-      lastUpdated: "2024-01-02",
-    },
-  ]
+  type UIScript = {
+    id: number
+    title: string
+    description: string
+    price: number
+    originalPrice?: number
+    rating: number
+    reviews: number
+    image: string
+    category: string
+    categoryName: string
+    seller: string
+    discount: number
+    framework?: string
+    priceCategory: string
+    tags: string[]
+    lastUpdated: string
+  }
+
+  type GridItem = UIScript | (any & { isAd: boolean })
+
+  const [allScripts, setAllScripts] = useState<UIScript[]>([])
+  const [ads, setAds] = useState<any[]>([])
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        console.log("Loading scripts...")
+        const [scriptsRes, adsRes] = await Promise.all([
+          fetch(`/api/scripts`, { cache: "no-store" }),
+          fetch(`/api/ads?status=active&category=scripts`, { cache: "no-store" })
+        ])
+        
+        if (scriptsRes.ok) {
+          const data = await scriptsRes.json()
+          console.log("Scripts API data:", data)
+          console.log("Scripts count:", data.scripts?.length || 0)
+          
+          const mappedScripts = (data.scripts || []).map((s: any) => {
+            const image = s.cover_image || (s.images && s.images[0]) || (s.screenshots && s.screenshots[0]) || "/placeholder.jpg";
+            console.log(`Script ${s.id} (${s.title}): cover_image=${s.cover_image}, images=${JSON.stringify(s.images)}, screenshots=${JSON.stringify(s.screenshots)}, final image=${image}`);
+            return {
+              id: s.id,
+              title: s.title,
+              description: s.description,
+              price: Number(s.price) || 0,
+              originalPrice: s.original_price ? Number(s.original_price) : undefined,
+              rating: s.rating || 0,
+              reviews: s.review_count || 0,
+              image: image,
+              category: s.category,
+              categoryName: s.category,
+              seller: s.seller_name,
+              discount: s.original_price ? Math.max(0, Math.round(((Number(s.original_price) - Number(s.price)) / Number(s.original_price)) * 100)) : 0,
+              framework: s.framework,
+              priceCategory: Number(s.price) <= 15 ? "Budget" : Number(s.price) <= 30 ? "Standard" : "Premium",
+              tags: (s.tags || []) as string[],
+              lastUpdated: s.last_updated,
+            };
+          });
+          console.log("Mapped scripts:", mappedScripts);
+          setAllScripts(mappedScripts)
+        }
+
+        if (adsRes.ok) {
+          const adsData = await adsRes.json()
+          setAds(adsData.ads || [])
+        }
+      } catch (error) {
+        console.error("Error loading data:", error)
+      }
+    }
+    load()
+  }, [])
 
   const categories = [
     { id: "economy", name: "Economy" },
@@ -249,7 +185,7 @@ export default function ScriptsPage() {
         return false
       }
 
-      if (selectedFrameworks.length > 0 && !selectedFrameworks.includes(script.framework)) {
+      if (selectedFrameworks.length > 0 && script.framework && !selectedFrameworks.includes(script.framework)) {
         return false
       }
 
@@ -261,7 +197,7 @@ export default function ScriptsPage() {
         return false
       }
 
-      if (selectedRatings.length > 0 && !selectedRatings.some((rating) => script.rating >= rating)) {
+      if (selectedRatings.length > 0 && !selectedRatings.some((rating) => (Number(script.rating) || 0) >= rating)) {
         return false
       }
 
@@ -282,6 +218,8 @@ export default function ScriptsPage() {
     onSaleOnly,
   ])
 
+
+
   // Sorting logic
   const sortedScripts = useMemo(() => {
     const scripts = [...filteredScripts]
@@ -298,6 +236,24 @@ export default function ScriptsPage() {
         return scripts.sort((a, b) => b.reviews - a.reviews)
     }
   }, [filteredScripts, sortBy])
+
+  // Debug logging for filtering
+  useEffect(() => {
+    console.log("=== DEBUG: Scripts Data Flow ===");
+    console.log("allScripts:", allScripts);
+    console.log("filteredScripts:", filteredScripts);
+    console.log("sortedScripts:", sortedScripts);
+    console.log("Current filters:", { 
+      searchQuery, 
+      selectedCategories, 
+      selectedFrameworks, 
+      selectedPriceCategories, 
+      priceRange, 
+      selectedRatings, 
+      onSaleOnly 
+    });
+    console.log("=== END DEBUG ===");
+  }, [allScripts, filteredScripts, sortedScripts, searchQuery, selectedCategories, selectedFrameworks, selectedPriceCategories, priceRange, selectedRatings, onSaleOnly])
 
   const handleCategoryChange = (category: string, checked: boolean) => {
     if (checked) {
@@ -365,6 +321,9 @@ export default function ScriptsPage() {
     selectedPriceCategories.length +
     selectedRatings.length +
     (onSaleOnly ? 1 : 0)
+
+  // Get random ads for scripts page
+  const randomAds = useRandomAds(ads, 2)
 
   return (
     <>
@@ -925,7 +884,7 @@ export default function ScriptsPage() {
                     </motion.div>
                   </motion.div>
                 ) : (
-                  <motion.div
+                                    <motion.div
                     className={
                       viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-4"
                     }
@@ -933,9 +892,43 @@ export default function ScriptsPage() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.5, staggerChildren: 0.1 }}
                   >
-                    {sortedScripts.map((script, index) => (
-                      <motion.div
-                        key={script.id}
+                                        {(() => {
+                      const items: GridItem[] = [...sortedScripts];
+                      // Insert ads at deterministic positions to avoid hydration issues
+                      if (randomAds.length > 0) {
+                        const adPositions = [];
+                        for (let i = 0; i < randomAds.length; i++) {
+                          // Use deterministic positioning based on index to avoid hydration issues
+                          const position = Math.floor((i * (items.length + 1)) / randomAds.length);
+                          adPositions.push({ ad: randomAds[i], position });
+                        }
+                        // Sort by position in descending order to avoid index shifting
+                        adPositions.sort((a, b) => b.position - a.position);
+                        adPositions.forEach(({ ad, position }) => {
+                          items.splice(position, 0, { ...ad, isAd: true } as GridItem);
+                        });
+                      }
+                      return items.map((item: GridItem, index) => {
+                        // If it's an ad, render AdCard
+                        if ('isAd' in item && item.isAd) {
+                          return (
+                            <motion.div
+                              key={`ad-${item.id}`}
+                              initial={{ opacity: 0, y: 50 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.5, delay: index * 0.05 }}
+                              whileHover={{ y: -5, scale: 1.02 }}
+                            >
+                              <AdCard ad={item as any} />
+                            </motion.div>
+                          );
+                        }
+                        
+                        // Otherwise render script
+                        const script = item as UIScript;
+                        return (
+                          <motion.div
+                            key={script.id}
                         initial={{ opacity: 0, y: 50 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: index * 0.05 }}
@@ -954,9 +947,13 @@ export default function ScriptsPage() {
                           <CardHeader className={`p-0 relative ${viewMode === "list" ? "w-48 flex-shrink-0" : ""}`}>
                             <div className="relative overflow-hidden">
                               <motion.img
-                                src={script.image || "/placeholder.svg"}
+                                src={script.image || "/placeholder.jpg"}
                                 alt={script.title}
                                 className={`object-cover transition-transform duration-500 group-hover:scale-110 ${viewMode === "list" ? "w-full h-32 rounded-l-lg" : "w-full h-48 rounded-t-lg"}`}
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "/placeholder.jpg";
+                                }}
                               />
                               <motion.div
                                 className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
@@ -1009,7 +1006,7 @@ export default function ScriptsPage() {
                                       >
                                         <Star
                                           className={`h-4 w-4 ${
-                                            i < Math.floor(script.rating)
+                                            i < Math.floor(Number(script.rating) || 0)
                                               ? "text-yellow-400 fill-current"
                                               : "text-gray-600"
                                           }`}
@@ -1018,7 +1015,7 @@ export default function ScriptsPage() {
                                     ))}
                                   </div>
                                   <span className="text-sm text-gray-400 ml-2">
-                                    {script.rating} ({script.reviews})
+                                    {(Number(script.rating) || 0).toFixed(1)} ({script.reviews})
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap gap-1 mb-3">
@@ -1088,7 +1085,9 @@ export default function ScriptsPage() {
                           </CardContent>
                         </Card>
                       </motion.div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </motion.div>
                 )}
               </AnimatePresence>

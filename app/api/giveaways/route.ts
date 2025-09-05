@@ -1,10 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createGiveaway, createGiveawayRequirement, createGiveawayPrize, getGiveaways } from "@/lib/database"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/auth"
+import { createGiveaway, createGiveawayRequirement, createGiveawayPrize, getGiveaways } from "@/lib/database-new"
 
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
     const { giveaway, requirements, prizes } = data
+    const session = await getServerSession(authOptions)
 
     // Validate required fields
     if (!giveaway.title || !giveaway.description || !giveaway.total_value || !giveaway.end_date) {
@@ -12,7 +15,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create giveaway
-    const giveawayId = await createGiveaway(giveaway)
+    const giveawayId = await createGiveaway({
+      ...giveaway,
+      creator_id: session ? String((session.user as any)?.id || "") : null,
+    })
 
     // Create requirements
     if (requirements && requirements.length > 0) {
@@ -44,13 +50,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status") || "active"
+    const status = searchParams.get("status") || "all"
     const featured = searchParams.get("featured") === "true"
     const limit = Number.parseInt(searchParams.get("limit") || "20")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
 
     const filters = {
-      status,
+      status: status === "all" ? undefined : status,
       featured: featured || undefined,
       limit,
       offset,

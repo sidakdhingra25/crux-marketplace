@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createScript, getScripts } from "@/lib/database"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/auth"
+import { createScript, getScripts } from "@/lib/database-new"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const session = await getServerSession(authOptions)
 
     // Validate required fields
     const requiredFields = ["title", "description", "price", "category", "framework", "seller_name", "seller_email"]
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest) {
       title: body.title,
       description: body.description,
       price: body.price,
-      original_price: body.original_price || null,
+      originalPrice: body.original_price || null,
       category: body.category,
       framework: body.framework,
       seller_name: body.seller_name,
@@ -28,11 +31,12 @@ export async function POST(request: NextRequest) {
       requirements: body.requirements || [],
       images: body.images || [],
       videos: body.videos || [],
-      demo_url: body.demo_url || null,
-      documentation_url: body.documentation_url || null,
-      support_url: body.support_url || null,
+      screenshots: body.screenshots || [],
+      coverImage: body.cover_image || null,
+      demoUrl: body.demo_url || null,
+      documentationUrl: body.documentation_url || null,
+      supportUrl: body.support_url || null,
       version: body.version || "1.0.0",
-      last_updated: new Date().toISOString(),
       status: "pending",
       featured: body.featured || false,
     })
@@ -56,25 +60,39 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
     const framework = searchParams.get("framework")
-    const status = searchParams.get("status") || "approved"
+    const status = searchParams.get("status") || "all"
     const featured = searchParams.get("featured")
     const limit = searchParams.get("limit")
     const offset = searchParams.get("offset")
 
+    console.log("Scripts API - Request params:", { category, framework, status, featured, limit, offset })
+
     const filters = {
       category: category || undefined,
       framework: framework || undefined,
-      status,
+      status: status === "all" ? "approved" : status, // Default to approved for public access
       featured: featured ? featured === "true" : undefined,
       limit: limit ? Number.parseInt(limit) : undefined,
       offset: offset ? Number.parseInt(offset) : undefined,
     }
 
+    console.log("Scripts API - Filters:", filters)
+
     const scripts = await getScripts(filters)
+    console.log("Scripts API - Found scripts:", scripts.length)
+    console.log("Scripts API - Script statuses:", scripts.map(s => ({ id: s.id, title: s.title, status: s.status })))
 
     return NextResponse.json({ scripts })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching scripts:", error)
+    
+    // Handle specific database connection errors
+    if (error.message?.includes('XATA_CONCURRENCY_LIMIT') || error.cause?.code === 'XATA_CONCURRENCY_LIMIT') {
+      return NextResponse.json({ 
+        error: "Database is temporarily overloaded. Please try again in a few seconds." 
+      }, { status: 503 })
+    }
+    
     return NextResponse.json({ error: "Failed to fetch scripts" }, { status: 500 })
   }
 }

@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import { useSession, signIn, signOut } from "next-auth/react"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [cartCount] = useState(3)
   const [notificationCount] = useState(2)
+  const { data: session, status } = useSession()
 
   return (
     <motion.nav
@@ -135,15 +138,47 @@ export default function Navbar() {
               )}
             </motion.div>
 
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-              <Button
-                variant="outline"
-                size="icon"
-                className="bg-gray-900/50 border-gray-700/50 text-white hover:bg-orange-500 hover:border-orange-500 backdrop-blur-sm transition-all duration-300"
-              >
-                <User className="h-4 w-4" />
-              </Button>
-            </motion.div>
+            {status === "authenticated" ? (
+              <div className="flex items-center gap-2">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Link href="/profile" className="block">
+                    <Avatar className="h-9 w-9 ring-1 ring-gray-700/60">
+                      <AvatarImage src={String((session?.user as any)?.image || "")} alt={String(session?.user?.name || "User")} />
+                      <AvatarFallback className="bg-gray-800 text-white text-sm">
+                        {String(session?.user?.name || "U").charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-gray-900/50 border-gray-700/50 text-white hover:bg-red-500 hover:border-red-500 backdrop-blur-sm transition-all duration-300"
+                    onClick={() => signOut()}
+                  >
+                    Logout
+                  </Button>
+                </motion.div>
+              </div>
+            ) : (
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="outline"
+                  className="bg-gray-900/50 border-gray-700/50 text-white hover:bg-orange-500 hover:border-orange-500 backdrop-blur-sm transition-all duration-300"
+                  onClick={() => signIn("discord")}
+                >
+                  Login with Discord
+                </Button>
+              </motion.div>
+            )}
+            {status === "authenticated" && (
+              <Link href="/admin">
+                <Button variant="outline" className="bg-gray-900/50 border-gray-700/50 text-white hover:bg-orange-500 hover:border-orange-500 backdrop-blur-sm transition-all duration-300">
+                  Admin
+                </Button>
+              </Link>
+            )}
           </motion.div>
 
           {/* Mobile menu button */}
