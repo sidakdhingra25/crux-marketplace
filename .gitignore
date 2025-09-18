@@ -28,3 +28,6 @@ next-env.d.ts
 
 # Windows reserved names
 nul
+
+# uploads (avoid bundling to Vercel)
+public/uploads/

@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/upload.js": {
+      "excludeFiles": "public/uploads/**"
+    },
+    "api/upload/index.js": {
+      "excludeFiles": "public/uploads/**"
+    }
+  }
+}
