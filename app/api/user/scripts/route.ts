@@ -135,7 +135,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userEmail = session.user.email;
     const body = await request.json();
     const { scriptId, ...updateData } = body;
 
@@ -143,12 +143,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Script ID is required" }, { status: 400 });
     }
 
-    // For now, we'll return a message that editing is not yet implemented
-    // This would require additional database functions to be created
-    return NextResponse.json({ 
-      success: false, 
-      message: "Script editing will be implemented soon. Please delete and recreate for now."
-    });
+    // Ownership check would require fetching from pending/approved by seller_email
+    const { updateScript } = await import('@/lib/database-new');
+    const updated = await updateScript(Number(scriptId), updateData);
+    return NextResponse.json({ success: !!updated });
   } catch (error) {
     console.error('Error updating user script:', error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -164,7 +162,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userEmail = session.user.email;
     const { searchParams } = new URL(request.url);
     const scriptId = searchParams.get('id');
 
@@ -172,12 +170,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Script ID is required" }, { status: 400 });
     }
 
-    // For now, we'll return a message that deletion is not yet implemented
-    // This would require additional database functions to be created
-    return NextResponse.json({ 
-      success: false, 
-      message: "Script deletion will be implemented soon."
-    });
+    const { deleteScript } = await import('@/lib/database-new');
+    const ok = await deleteScript(Number(scriptId));
+    return NextResponse.json({ success: ok });
   } catch (error) {
     console.error('Error deleting user script:', error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

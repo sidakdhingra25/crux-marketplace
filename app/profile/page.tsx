@@ -103,15 +103,9 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    if (status === "loading") return
-    
-    if (!session) {
-      router.push("/")
-      return
-    }
-
+    if (status !== "authenticated") return
     fetchUserData()
-  }, [session, status, router])
+  }, [status])
 
   const fetchUserData = async () => {
     try {
@@ -155,18 +149,22 @@ export default function ProfilePage() {
         setGiveawayEntries(entriesData.entries || [])
       }
 
-      // Calculate stats based on the fetched data
-      const totalDownloads = scripts.reduce((sum, script) => sum + (script.downloads || 0), 0);
-      const totalEarnings = scripts.reduce((sum, script) => sum + ((script.downloads || 0) * Number(script.price)), 0);
+      // Calculate stats based on freshly fetched arrays to avoid stale state
+      const sArr = (await scriptsResponse.clone().json()).scripts || []
+      const gArr = (await giveawaysResponse.clone().json()).giveaways || []
+      const aArr = (await adsResponse.clone().json()).ads || []
+      const eArr = (await entriesResponse.clone().json()).entries || []
+      const totalDownloads = sArr.reduce((sum: number, script: any) => sum + (script.downloads || 0), 0)
+      const totalEarnings = sArr.reduce((sum: number, script: any) => sum + ((script.downloads || 0) * Number(script.price)), 0)
       
       const finalStats = {
-        totalScripts: scripts.length,
-        totalGiveaways: giveaways.length,
-        totalAds: ads.length,
+        totalScripts: sArr.length,
+        totalGiveaways: gArr.length,
+        totalAds: aArr.length,
         totalDownloads: totalDownloads,
         totalEarnings: totalEarnings,
-        totalEntries: giveawayEntries.length,
-      };
+        totalEntries: eArr.length,
+      }
       
       console.log("Profile - Final stats:", finalStats);
       setStats(finalStats);

@@ -8,8 +8,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const session = await getServerSession(authOptions)
 
-    // Validate required fields
-    const requiredFields = ["title", "description", "price", "category", "framework", "seller_name", "seller_email"]
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Validate required fields (derive seller fields from session)
+    const requiredFields = ["title", "description", "price", "category", "framework"]
     for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 })
@@ -24,8 +28,8 @@ export async function POST(request: NextRequest) {
       originalPrice: body.original_price || null,
       category: body.category,
       framework: body.framework,
-      seller_name: body.seller_name,
-      seller_email: body.seller_email,
+      seller_name: session.user?.name || "Unknown Seller",
+      seller_email: session.user?.email || "",
       tags: body.tags || [],
       features: body.features || [],
       requirements: body.requirements || [],

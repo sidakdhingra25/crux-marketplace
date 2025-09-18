@@ -239,6 +239,47 @@ export const ads = pgTable('ads', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Base ad fields for approval system
+const baseAdFields = {
+  id: integer('id').primaryKey().notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  imageUrl: text('image_url'),
+  linkUrl: text('link_url'),
+  category: text('category').notNull(),
+  priority: integer('priority').default(1),
+  startDate: timestamp('start_date').defaultNow(),
+  endDate: timestamp('end_date'),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+} as const;
+
+// Pending ads (submissions waiting for review)
+export const pendingAds = pgTable('pending_ads', {
+  ...baseAdFields,
+  submittedAt: timestamp('submitted_at').defaultNow(),
+  adminNotes: text('admin_notes'),
+});
+
+// Approved ads (live)
+export const approvedAds = pgTable('approved_ads', {
+  ...baseAdFields,
+  status: adStatusEnum('status').default('active'),
+  approvedAt: timestamp('approved_at').defaultNow(),
+  approvedBy: text('approved_by'),
+  adminNotes: text('admin_notes'),
+});
+
+// Rejected ads
+export const rejectedAds = pgTable('rejected_ads', {
+  ...baseAdFields,
+  rejectedAt: timestamp('rejected_at').defaultNow(),
+  rejectedBy: text('rejected_by'),
+  rejectionReason: text('rejection_reason').notNull(),
+  adminNotes: text('admin_notes'),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   giveawayEntries: many(giveawayEntries),

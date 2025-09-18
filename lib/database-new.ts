@@ -1,6 +1,6 @@
 import { db } from './db';
 import { eq, desc, and, or, like, gte, lte, sql } from 'drizzle-orm';
-import { users, scripts, pendingScripts, approvedScripts, rejectedScripts, giveaways, pendingGiveaways, approvedGiveaways, rejectedGiveaways, giveawayEntries, giveawayReviews, scriptReviews, ads, giveawayRequirements, giveawayPrizes } from './schema';
+import { users, scripts, pendingScripts, approvedScripts, rejectedScripts, giveaways, pendingGiveaways, approvedGiveaways, rejectedGiveaways, giveawayEntries, giveawayReviews, scriptReviews, ads, giveawayRequirements, giveawayPrizes, pendingAds, approvedAds, rejectedAds } from './schema';
 import type { NewUser, NewScript, NewGiveaway, NewGiveawayEntry, NewGiveawayReview, NewScriptReview, NewAd, NewGiveawayRequirement, NewGiveawayPrize } from './schema';
 
 // User functions
@@ -575,42 +575,75 @@ export async function deleteGiveaway(id: number) {
 
 // Admin giveaway management functions
 export async function getPendingGiveaways(limit?: number) {
-  try {
-    let query = db.select().from(pendingGiveaways).orderBy(desc(pendingGiveaways.submittedAt));
-    if (limit) {
-      query = query.limit(limit);
+  const maxRetries = 3;
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      let query = db.select().from(pendingGiveaways).orderBy(desc(pendingGiveaways.submittedAt));
+      if (limit) {
+        query = query.limit(limit);
+      }
+      return await query;
+    } catch (error: any) {
+      lastError = error;
+      if (error?.cause?.code === 'XATA_CONCURRENCY_LIMIT' || error?.cause?.code === 'CONNECT_TIMEOUT') {
+        const waitTime = attempt * 500;
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+      break;
     }
-    return await query;
-  } catch (error) {
-    console.error('Error getting pending giveaways:', error);
-    return [];
   }
+  console.warn('getPendingGiveaways failed after retries:', lastError);
+  return [];
 }
 
 export async function getApprovedGiveaways(limit?: number) {
-  try {
-    let query = db.select().from(approvedGiveaways).orderBy(desc(approvedGiveaways.approvedAt));
-    if (limit) {
-      query = query.limit(limit);
+  const maxRetries = 3;
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      let query = db.select().from(approvedGiveaways).orderBy(desc(approvedGiveaways.approvedAt));
+      if (limit) {
+        query = query.limit(limit);
+      }
+      return await query;
+    } catch (error: any) {
+      lastError = error;
+      if (error?.cause?.code === 'XATA_CONCURRENCY_LIMIT' || error?.cause?.code === 'CONNECT_TIMEOUT') {
+        const waitTime = attempt * 500;
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+      break;
     }
-    return await query;
-  } catch (error) {
-    console.error('Error getting approved giveaways:', error);
-    return [];
   }
+  console.warn('getApprovedGiveaways failed after retries:', lastError);
+  return [];
 }
 
 export async function getRejectedGiveaways(limit?: number) {
-  try {
-    let query = db.select().from(rejectedGiveaways).orderBy(desc(rejectedGiveaways.rejectedAt));
-    if (limit) {
-      query = query.limit(limit);
+  const maxRetries = 3;
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      let query = db.select().from(rejectedGiveaways).orderBy(desc(rejectedGiveaways.rejectedAt));
+      if (limit) {
+        query = query.limit(limit);
+      }
+      return await query;
+    } catch (error: any) {
+      lastError = error;
+      if (error?.cause?.code === 'XATA_CONCURRENCY_LIMIT' || error?.cause?.code === 'CONNECT_TIMEOUT') {
+        const waitTime = attempt * 500;
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+      break;
     }
-    return await query;
-  } catch (error) {
-    console.error('Error getting rejected giveaways:', error);
-    return [];
   }
+  console.warn('getRejectedGiveaways failed after retries:', lastError);
+  return [];
 }
 
 export async function approveGiveaway(giveawayId: number, adminId: string, adminNotes?: string) {
@@ -783,11 +816,23 @@ export async function createAd(adData: NewAd) {
   const timestamp = Math.floor(Date.now() / 1000); // Convert to seconds
   const randomSuffix = Math.floor(Math.random() * 10000);
   const id = timestamp + randomSuffix;
-  
-  const result = await db.insert(ads).values({
-    ...adData,
-    id: id
-  }).returning({ id: ads.id });
+
+  // Map snake_case input to camelCase schema fields and provide defaults
+  const mapped = {
+    id: id,
+    title: (adData as any).title,
+    description: (adData as any).description,
+    imageUrl: (adData as any).imageUrl ?? (adData as any).image_url ?? null,
+    linkUrl: (adData as any).linkUrl ?? (adData as any).link_url ?? null,
+    category: (adData as any).category,
+    priority: (adData as any).priority ?? 1,
+    startDate: (adData as any).startDate ?? (adData as any).start_date ?? new Date(),
+    endDate: (adData as any).endDate ?? (adData as any).end_date ?? null,
+    createdBy: (adData as any).createdBy ?? (adData as any).created_by,
+  };
+
+  // All new ads go to pending_ads
+  const result = await db.insert(pendingAds).values(mapped as any).returning({ id: pendingAds.id });
   return result[0]?.id;
 }
 
@@ -801,21 +846,22 @@ export async function getAds(filters?: {
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      let query = db.select().from(ads);
-      
+      // Public listing from approved_ads only
+      let query = db.select().from(approvedAds);
+
       if (filters?.status) {
-        query = query.where(eq(ads.status, filters.status as any));
+        query = query.where(eq(approvedAds.status, filters.status as any));
       }
       if (filters?.category) {
-        query = query.where(eq(ads.category, filters.category));
+        query = query.where(eq(approvedAds.category, filters.category));
       }
-      
-      query = query.orderBy(desc(ads.priority), desc(ads.createdAt));
-      
+
+      query = query.orderBy(desc(approvedAds.priority), desc(approvedAds.createdAt));
+
       // Apply default limit if none specified to prevent memory issues
       const limit = filters?.limit || 50;
       query = query.limit(limit);
-      
+
       return await query;
     } catch (error: any) {
       lastError = error;
@@ -838,7 +884,18 @@ export async function getAds(filters?: {
 }
 
 export async function getAdById(id: number) {
-  const result = await db.select().from(ads).where(eq(ads.id, id));
+  // Look in approved first, then pending, then rejected, then legacy ads
+  let result = await db.select().from(approvedAds).where(eq(approvedAds.id, id));
+  if (result.length > 0) return result[0];
+
+  result = await db.select().from(pendingAds).where(eq(pendingAds.id, id));
+  if (result.length > 0) return result[0];
+
+  result = await db.select().from(rejectedAds).where(eq(rejectedAds.id, id));
+  if (result.length > 0) return result[0];
+
+  // legacy table fallback
+  result = await db.select().from(ads).where(eq(ads.id, id));
   return result[0] ?? null;
 }
 
@@ -847,7 +904,8 @@ export async function updateAd(id: number, updateData: Partial<NewAd>) {
     const fields = Object.keys(updateData);
     if (fields.length === 0) return null;
     
-    let updateQuery = db.update(ads).set({ updatedAt: new Date() });
+    // Update approved ad by default (admin-side edits), fallback to pending
+    let updateQuery = db.update(approvedAds).set({ updatedAt: new Date() });
     
     Object.entries(updateData).forEach(([key, value]) => {
       if (value !== undefined) {
@@ -855,7 +913,17 @@ export async function updateAd(id: number, updateData: Partial<NewAd>) {
       }
     });
     
-    const result = await updateQuery.where(eq(ads.id, id)).returning();
+    let result = await updateQuery.where(eq(approvedAds.id, id)).returning();
+    if (result.length === 0) {
+      // Try pending
+      let pendingUpdate = db.update(pendingAds).set({ updatedAt: new Date() });
+      Object.entries(updateData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          pendingUpdate = pendingUpdate.set({ [key]: value });
+        }
+      });
+      result = await pendingUpdate.where(eq(pendingAds.id, id)).returning();
+    }
     return result[0] ?? null;
   } catch (error) {
     console.error('Error updating ad:', error);
@@ -865,10 +933,68 @@ export async function updateAd(id: number, updateData: Partial<NewAd>) {
 
 export async function deleteAd(id: number) {
   try {
-    const result = await db.delete(ads).where(eq(ads.id, id)).returning({ id: ads.id });
+    // Try delete across all ad tables
+    let result = await db.delete(approvedAds).where(eq(approvedAds.id, id)).returning({ id: approvedAds.id });
+    if (result.length === 0) {
+      result = await db.delete(pendingAds).where(eq(pendingAds.id, id)).returning({ id: pendingAds.id });
+    }
+    if (result.length === 0) {
+      result = await db.delete(rejectedAds).where(eq(rejectedAds.id, id)).returning({ id: rejectedAds.id });
+    }
+    if (result.length === 0) {
+      result = await db.delete(ads).where(eq(ads.id, id)).returning({ id: ads.id });
+    }
     return result.length > 0;
   } catch (error) {
     console.error('Error deleting ad:', error);
     return false;
   }
+}
+
+// Admin ad management functions
+export async function getPendingAds(limit?: number) {
+  let query = db.select().from(pendingAds).orderBy(desc(pendingAds.createdAt));
+  if (limit) query = query.limit(limit);
+  return await query;
+}
+
+export async function getApprovedAds(limit?: number) {
+  let query = db.select().from(approvedAds).orderBy(desc(approvedAds.approvedAt));
+  if (limit) query = query.limit(limit);
+  return await query;
+}
+
+export async function getRejectedAds(limit?: number) {
+  let query = db.select().from(rejectedAds).orderBy(desc(rejectedAds.rejectedAt));
+  if (limit) query = query.limit(limit);
+  return await query;
+}
+
+export async function approveAd(adId: number, adminId: string, adminNotes?: string) {
+  // Move from pending to approved
+  const pending = await db.select().from(pendingAds).where(eq(pendingAds.id, adId)).limit(1);
+  if (pending.length === 0) throw new Error('Pending ad not found');
+  const ad = pending[0];
+  await db.insert(approvedAds).values({
+    ...ad,
+    status: 'active' as any,
+    approvedBy: adminId,
+    adminNotes: adminNotes || null,
+  });
+  await db.delete(pendingAds).where(eq(pendingAds.id, adId));
+  return true;
+}
+
+export async function rejectAd(adId: number, adminId: string, rejectionReason: string, adminNotes?: string) {
+  const pending = await db.select().from(pendingAds).where(eq(pendingAds.id, adId)).limit(1);
+  if (pending.length === 0) throw new Error('Pending ad not found');
+  const ad = pending[0];
+  await db.insert(rejectedAds).values({
+    ...ad,
+    rejectedBy: adminId,
+    rejectionReason,
+    adminNotes: adminNotes || null,
+  });
+  await db.delete(pendingAds).where(eq(pendingAds.id, adId));
+  return true;
 }
