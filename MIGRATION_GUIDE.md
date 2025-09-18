@@ -1,4 +1,4 @@
-# Migration Guide: Neon to Xata Lite with Drizzle ORM
+# Migration Guide: Xata Lite with Drizzle ORM
 
 ## 🎯 What We've Accomplished
 
@@ -102,7 +102,7 @@ npm run dev
 
 ## 🚨 Important Notes
 
-1. **Backup**: Make sure you have a backup of your current Neon database
+1. **Backup**: Make sure you have a backup of your current database
 2. **Data Migration**: You'll need to migrate your existing data manually or write a script
 3. **Testing**: Test thoroughly in development before deploying
 4. **Discord OAuth**: Make sure to add the correct redirect URI in Discord Developer Portal

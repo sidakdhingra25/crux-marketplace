@@ -2,7 +2,7 @@
 
 ## 🎯 What Needs to Be Migrated
 
-Your API routes are currently using the old Neon database functions. Here's what needs to be updated:
+// ...existing code...
 
 ### 1. **Scripts API** (`app/api/scripts/route.ts`)
 **Current Import:**

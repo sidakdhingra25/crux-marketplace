@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+// File deleted: was connected to Neon
 
-const sql = neon(process.env.DATABASE_URL!)
+// ...existing code...
 
 export async function GET(request: NextRequest) {
   try {

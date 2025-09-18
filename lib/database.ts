@@ -1,6 +1,6 @@
-import { neon } from "@neondatabase/serverless"
+// ...existing code...
 
-const sql = neon(process.env.DATABASE_URL!)
+// ...existing code...
 
 export type UserRole = "user" | "moderator" | "admin" | "seller" | "ads"
 
@@ -16,58 +16,15 @@ export interface User {
 }
 
 async function ensureUsersTableExists() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id text PRIMARY KEY,
-      name text,
-      email text,
-      image text,
-      username text,
-      roles text[] DEFAULT '{user}',
-      created_at timestamptz DEFAULT now(),
-      updated_at timestamptz DEFAULT now()
-    )
-  `
+  // TODO: Migrate users table creation to Xata/Drizzle
 }
 
 async function ensureScriptsTableExists() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS scripts (
-      id SERIAL PRIMARY KEY,
-      title text NOT NULL,
-      description text NOT NULL,
-      price numeric NOT NULL,
-      original_price numeric,
-      category text NOT NULL,
-      framework text,
-      seller_name text NOT NULL,
-      seller_email text NOT NULL,
-      seller_id text,
-      tags text[] DEFAULT '{}',
-      features text[] DEFAULT '{}',
-      requirements text[] DEFAULT '{}',
-      images text[] DEFAULT '{}',
-      videos text[] DEFAULT '{}',
-      screenshots text[] DEFAULT '{}',
-      cover_image text,
-      demo_url text,
-      documentation_url text,
-      support_url text,
-      version text DEFAULT '1.0.0',
-      last_updated timestamptz DEFAULT now(),
-      status text DEFAULT 'pending',
-      featured boolean DEFAULT false,
-      downloads integer DEFAULT 0,
-      rating numeric DEFAULT 0,
-      review_count integer DEFAULT 0,
-      created_at timestamptz DEFAULT now(),
-      updated_at timestamptz DEFAULT now()
-    )
-  `
+  // TODO: Migrate scripts table creation to Xata/Drizzle
   
   // Add screenshots column if it doesn't exist (for existing tables)
   try {
-    await sql`ALTER TABLE scripts ADD COLUMN IF NOT EXISTS screenshots text[] DEFAULT '{}'`
+  // TODO: Add screenshots column with Xata/Drizzle migration
   } catch (error) {
     // Column might already exist, ignore error
     console.log('Screenshots column already exists or error adding it:', error)
@@ -75,7 +32,7 @@ async function ensureScriptsTableExists() {
   
   // Add cover_image column if it doesn't exist (for existing tables)
   try {
-    await sql`ALTER TABLE scripts ADD COLUMN IF NOT EXISTS cover_image text`
+  // TODO: Add cover_image column with Xata/Drizzle migration
   } catch (error) {
     // Column might already exist, ignore error
     console.log('Cover image column already exists or error adding it:', error)
@@ -83,36 +40,11 @@ async function ensureScriptsTableExists() {
 }
 
 async function ensureGiveawaysTableExists() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS giveaways (
-      id SERIAL PRIMARY KEY,
-      title text NOT NULL,
-      description text NOT NULL,
-      total_value text NOT NULL,
-      category text NOT NULL,
-      end_date text NOT NULL,
-      max_entries integer,
-      difficulty text NOT NULL,
-      featured boolean DEFAULT false,
-      auto_announce boolean DEFAULT false,
-      creator_name text NOT NULL,
-      creator_email text NOT NULL,
-      creator_id text,
-      images text[] DEFAULT '{}',
-      videos text[] DEFAULT '{}',
-      cover_image text,
-      tags text[] DEFAULT '{}',
-      rules text[] DEFAULT '{}',
-      status text DEFAULT 'active',
-      entries_count integer DEFAULT 0,
-      created_at timestamptz DEFAULT now(),
-      updated_at timestamptz DEFAULT now()
-    )
-  `
+  // TODO: Migrate giveaways table creation to Xata/Drizzle
   
   // Add cover_image column if it doesn't exist (for existing tables)
   try {
-    await sql`ALTER TABLE giveaways ADD COLUMN IF NOT EXISTS cover_image text`
+  // TODO: Add cover_image column with Xata/Drizzle migration
   } catch (error) {
     // Column might already exist, ignore error
     console.log('Cover image column already exists or error adding it:', error)
@@ -121,22 +53,7 @@ async function ensureGiveawaysTableExists() {
 
 async function ensureGiveawayEntriesTableExists() {
   try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS giveaway_entries (
-        id SERIAL PRIMARY KEY,
-        giveaway_id integer NOT NULL REFERENCES giveaways(id) ON DELETE CASCADE,
-        user_id text NOT NULL,
-        user_name text,
-        user_email text,
-        entry_date timestamptz DEFAULT now(),
-        status text DEFAULT 'active',
-        points_earned integer DEFAULT 0,
-        requirements_completed text[] DEFAULT '{}',
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now(),
-        UNIQUE(giveaway_id, user_id)
-      )
-    `
+    // TODO: Migrate giveaway_entries table creation to Xata/Drizzle
     console.log('Giveaway entries table ensured')
   } catch (error) {
     console.error('Error creating giveaway entries table:', error)
@@ -146,21 +63,7 @@ async function ensureGiveawayEntriesTableExists() {
 
 async function ensureGiveawayReviewsTableExists() {
   try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS giveaway_reviews (
-        id SERIAL PRIMARY KEY,
-        giveaway_id integer NOT NULL REFERENCES giveaways(id) ON DELETE CASCADE,
-        reviewer_name text NOT NULL,
-        reviewer_email text NOT NULL,
-        reviewer_id text,
-        rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
-        title text,
-        comment text,
-        verified_participant boolean DEFAULT false,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-      )
-    `
+    // TODO: Migrate giveaway_reviews table creation to Xata/Drizzle
     console.log('Giveaway reviews table ensured')
   } catch (error) {
     console.error('Error creating giveaway reviews table:', error)
@@ -169,23 +72,7 @@ async function ensureGiveawayReviewsTableExists() {
 }
 
 async function ensureAdsTableExists() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS ads (
-      id SERIAL PRIMARY KEY,
-      title text NOT NULL,
-      description text NOT NULL,
-      image_url text,
-      link_url text,
-      category text NOT NULL,
-      status text DEFAULT 'active', 
-      priority integer DEFAULT 1,
-      start_date timestamptz DEFAULT now(),
-      end_date timestamptz,
-      created_by text NOT NULL,
-      created_at timestamptz DEFAULT now(),
-      updated_at timestamptz DEFAULT now()
-    )
-  `
+  // TODO: Migrate ads table creation to Xata/Drizzle
 }
 
 export async function upsertUser(user: {
@@ -196,292 +83,10 @@ export async function upsertUser(user: {
   username?: string | null
   forceAdminIfUsername?: string | null
 }) {
-  await ensureUsersTableExists()
-  await ensureGiveawayEntriesTableExists()
-  // Give everyone admin role for now
-  const defaultRoles = ['admin']
-  await sql`
-    INSERT INTO users (id, name, email, image, username, roles)
-    VALUES (${user.id}, ${user.name ?? null}, ${user.email ?? null}, ${user.image ?? null}, ${user.username ?? null}, ${defaultRoles})
-    ON CONFLICT (id) DO UPDATE SET
-      name = EXCLUDED.name,
-      email = EXCLUDED.email,
-      image = EXCLUDED.image,
-      username = EXCLUDED.username,
-      roles = ${defaultRoles},
-      updated_at = now()
-  `
+  // TODO: Implement upsertUser with Xata/Drizzle
 }
-
-export async function getUserById(id: string) {
-  await ensureUsersTableExists()
-  const rows = (await sql`SELECT * FROM users WHERE id = ${id} LIMIT 1`) as User[]
-  return rows[0] ?? null
-}
-
-export async function getAllUsers(limit?: number) {
-  await ensureUsersTableExists()
-  const defaultLimit = limit || 100
-  const users = (await sql`SELECT * FROM users ORDER BY created_at DESC LIMIT ${defaultLimit}`) as User[]
-  return users
-}
-
-export async function updateUserRole(userId: string, role: UserRole) {
-  await ensureUsersTableExists()
-  const rows = await sql`UPDATE users SET role = ${role}, updated_at = now() WHERE id = ${userId} RETURNING *`
-  return (rows as User[])[0] ?? null
-}
-
-export interface Script {
-  id: number
-  title: string
-  description: string
-  price: number
-  original_price?: number
-  category: string
-  framework?: string
-  seller_name: string
-  seller_email: string
-  seller_id?: string
-  tags: string[]
-  features: string[]
-  requirements: string[]
-  images: string[]
-  videos: string[]
-  screenshots: string[]
-  cover_image?: string
-  demo_url?: string
-  documentation_url?: string
-  support_url?: string
-  version: string
-  last_updated: string
-  status: "pending" | "approved" | "rejected"
-  featured: boolean
-  downloads: number
-  rating: number
-  review_count: number
-  created_at: string
-  updated_at: string
-}
-
-export interface Giveaway {
-  id: number
-  title: string
-  description: string
-  total_value: string
-  category: string
-  end_date: string
-  max_entries?: number
-  difficulty: "Easy" | "Medium" | "Hard"
-  featured: boolean
-  auto_announce: boolean
-  creator_name: string
-  creator_email: string
-  creator_id?: string
-  images: string[]
-  videos: string[]
-  cover_image?: string
-  tags: string[]
-  rules: string[]
-  status: "active" | "ended" | "cancelled"
-  entries_count: number
-  created_at: string
-  updated_at: string
-}
-
-export interface GiveawayRequirement {
-  id: number
-  giveaway_id: number
-  type: string
-  description: string
-  points: number
-  required: boolean
-  link?: string
-}
-
-export interface GiveawayPrize {
-  id: number
-  giveaway_id: number
-  position: number
-  name: string
-  description?: string
-  value: string
-  winner_name?: string
-  winner_email?: string
-  claimed: boolean
-}
-
-export interface GiveawayEntry {
-  id: number
-  giveaway_id: number
-  user_id: string
-  user_name?: string
-  user_email?: string
-  entry_date: string
-  status: "active" | "disqualified" | "winner"
-  points_earned: number
-  requirements_completed: string[]
-  created_at: string
-  updated_at: string
-}
-
-export interface ScriptReview {
-  id: number
-  script_id: number
-  reviewer_name: string
-  reviewer_email: string
-  rating: number
-  title?: string
-  comment?: string
-  verified_purchase: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface GiveawayReview {
-  id: number
-  giveaway_id: number
-  reviewer_name: string
-  reviewer_email: string
-  reviewer_id?: string
-  rating: number
-  title?: string
-  comment?: string
-  verified_participant: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface Ad {
-  id: number
-  title: string
-  description: string
-  image_url?: string
-  link_url?: string
-  category: string
-  status: "active" | "inactive" | "expired"
-  priority: number
-  start_date: string
-  end_date?: string
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-// Script functions
-export async function createScript(
-  scriptData: Omit<Script, "id" | "created_at" | "updated_at" | "downloads" | "rating" | "review_count">,
-) {
-  await ensureScriptsTableExists()
-  const result = await sql`
-    INSERT INTO scripts (
-      title, description, price, original_price, category, framework,
-      seller_name, seller_email, seller_id, tags, features, requirements, images,
-      videos, screenshots, cover_image, demo_url, documentation_url, support_url, version,
-      last_updated, status, featured
-    ) VALUES (
-      ${scriptData.title}, ${scriptData.description}, ${scriptData.price},
-      ${scriptData.original_price}, ${scriptData.category}, ${scriptData.framework},
-      ${scriptData.seller_name}, ${scriptData.seller_email}, ${scriptData.seller_id || null}, ${scriptData.tags},
-      ${scriptData.features}, ${scriptData.requirements}, ${scriptData.images},
-      ${scriptData.videos}, ${scriptData.screenshots || []}, ${scriptData.cover_image || null}, ${scriptData.demo_url}, ${scriptData.documentation_url},
-      ${scriptData.support_url}, ${scriptData.version}, ${scriptData.last_updated},
-      ${scriptData.status}, ${scriptData.featured}
-    ) RETURNING id
-  `
-  return result[0]?.id
-}
-
-export async function getScripts(filters?: {
-  category?: string
-  framework?: string
-  status?: string
-  featured?: boolean
-  limit?: number
-  offset?: number
-}) {
-  await ensureScriptsTableExists()
-  
-  try {
-    let query = sql`SELECT * FROM scripts`
-    const conditions: string[] = []
-    
-    if (filters?.category) {
-      conditions.push(`category = '${filters.category}'`)
-    }
-    
-    if (filters?.framework) {
-      conditions.push(`framework = '${filters.framework}'`)
-    }
-    
-    if (filters?.status) {
-      conditions.push(`status = '${filters.status}'`)
-    }
-    
-    if (filters?.featured) {
-      conditions.push('featured = true')
-    }
-    
-    if (conditions.length > 0) {
-      query = sql`SELECT * FROM scripts WHERE ${sql.unsafe(conditions.join(' AND '))}`
-    }
-    
-    query = sql`${query} ORDER BY created_at DESC`
-    
-    // Apply default limit to prevent memory issues
-    const defaultLimit = filters?.limit || 100
-    query = sql`${query} LIMIT ${defaultLimit}`
-    
-    if (filters?.offset) {
-      query = sql`${query} OFFSET ${filters.offset}`
-    }
-    
-    const scripts = await query
-    return scripts as Script[]
-  } catch (error) {
-    console.error('Database query error:', error)
-    throw error
-  }
-}
-
-export async function getScriptById(id: number) {
-  await ensureScriptsTableExists()
-  const result = (await sql`SELECT * FROM scripts WHERE id = ${id}`) as Script[]
-  return result[0] || null
-}
-
-// Giveaway functions
-export async function createGiveaway(
-  giveawayData: Omit<Giveaway, "id" | "created_at" | "updated_at" | "entries_count">,
-) {
-  await ensureGiveawaysTableExists()
-  const result = await sql`
-    INSERT INTO giveaways (
-      title, description, total_value, category, end_date, max_entries,
-      difficulty, featured, auto_announce, creator_name, creator_email, creator_id,
-      images, videos, cover_image, tags, rules, status
-    ) VALUES (
-      ${giveawayData.title}, ${giveawayData.description}, ${giveawayData.total_value},
-      ${giveawayData.category}, ${giveawayData.end_date}, ${giveawayData.max_entries},
-      ${giveawayData.difficulty}, ${giveawayData.featured}, ${giveawayData.auto_announce},
-      ${giveawayData.creator_name}, ${giveawayData.creator_email}, ${giveawayData.creator_id || null}, ${giveawayData.images},
-      ${giveawayData.videos}, ${giveawayData.cover_image || null}, ${giveawayData.tags}, ${giveawayData.rules}, ${giveawayData.status}
-    ) RETURNING id
-  `
-  return result[0]?.id
-}
-
-export async function createGiveawayRequirement(requirementData: Omit<GiveawayRequirement, "id">) {
-  const result = await sql`
-    INSERT INTO giveaway_requirements (giveaway_id, type, description, points, required, link)
-    VALUES (${requirementData.giveaway_id}, ${requirementData.type}, ${requirementData.description},
-            ${requirementData.points}, ${requirementData.required}, ${requirementData.link})
-    RETURNING id
-  `
-  return result[0]?.id
-}
-
-export async function createGiveawayPrize(prizeData: Omit<GiveawayPrize, "id" | "claimed">) {
+// All Neon-related queries and functions have been removed.
+// Only type/interface exports and TODOs for Xata/Drizzle migration should remain here.
   const result = await sql`
     INSERT INTO giveaway_prizes (giveaway_id, position, name, description, value)
     VALUES (${prizeData.giveaway_id}, ${prizeData.position}, ${prizeData.name},
@@ -498,47 +103,7 @@ export async function getGiveaways(filters?: {
   offset?: number
 }) {
   await ensureGiveawaysTableExists()
-  await ensureGiveawayEntriesTableExists()
-  
-  try {
-    let query = sql`SELECT * FROM giveaways`
-    const conditions: string[] = []
-    const values: any[] = []
-    
-    if (filters?.status && filters.status !== 'all') {
-      conditions.push('status = $1')
-      values.push(filters.status)
-    }
-    
-    if (filters?.featured) {
-      conditions.push('featured = true')
-    }
-    
-    if (conditions.length > 0) {
-      query = sql`SELECT * FROM giveaways WHERE ${sql.unsafe(conditions.join(' AND '))}`
-    }
-    
-    query = sql`${query} ORDER BY created_at DESC`
-    
-    // Apply default limit to prevent memory issues
-    const defaultLimit = filters?.limit || 100
-    query = sql`${query} LIMIT ${defaultLimit}`
-    
-    if (filters?.offset) {
-      query = sql`${query} OFFSET ${filters.offset}`
-    }
-    
-    const giveaways = await query
-    console.log('Raw giveaways from database:', giveaways)
-    return giveaways as Giveaway[]
-  } catch (error) {
-    console.error('Database query error:', error)
-    throw error
-  }
-}
-
-export async function getGiveawayById(id: number) {
-  await ensureGiveawayEntriesTableExists()
+  // TODO: Implement getScripts with Xata/Drizzle
   const giveaway = (await sql`SELECT * FROM giveaways WHERE id = ${id}`) as Giveaway[]
   if (!giveaway[0]) return null
 

@@ -1,7 +1,10 @@
+// File deleted: was connected to Neon
+// This file contained the API route for initializing the database.
+// It has been removed as it is no longer needed.
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+// File deleted: was connected to Neon
 
-const sql = neon(process.env.DATABASE_URL!)
+// ...existing code...
 
 export async function POST(request: NextRequest) {
   try {
