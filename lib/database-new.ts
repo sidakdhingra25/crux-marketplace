@@ -816,6 +816,22 @@ export async function getAds(filters?: {
     } catch (error: any) {
       lastError = error;
       console.error(`Database query attempt ${attempt} failed:`, error);
+      // Fallback: if approval tables don't exist, use legacy ads table
+      if (error?.cause?.code === '42P01' || /relation \".*_ads\" does not exist/i.test(String(error?.message))) {
+        try {
+          const legacyConditions: any[] = [];
+          if (filters?.status) legacyConditions.push(eq(ads.status, filters.status as any));
+          if (filters?.category) legacyConditions.push(eq(ads.category, filters.category));
+          const limitVal = filters?.limit || 50;
+          const base = legacyConditions.length
+            ? db.select().from(ads).where(and(...legacyConditions))
+            : db.select().from(ads);
+          return await base.orderBy(desc(ads.priority), desc(ads.createdAt)).limit(limitVal) as any;
+        } catch (fallbackError) {
+          lastError = fallbackError;
+          break;
+        }
+      }
       
       // If it's a connection limit error, wait before retrying
       if (error.cause?.code === 'XATA_CONCURRENCY_LIMIT') {
@@ -835,18 +851,25 @@ export async function getAds(filters?: {
 
 export async function getAdById(id: number) {
   // Look in approved first, then pending, then rejected, then legacy ads
-  let result: any = await db.select().from(approvedAds).where(eq(approvedAds.id, id));
-  if (result.length > 0) return result[0];
-
-  result = await db.select().from(pendingAds).where(eq(pendingAds.id, id)) as any;
-  if (result.length > 0) return result[0];
-
-  result = await db.select().from(rejectedAds).where(eq(rejectedAds.id, id)) as any;
-  if (result.length > 0) return result[0];
+  try {
+    let result: any = await db.select().from(approvedAds).where(eq(approvedAds.id, id));
+    if (result.length > 0) return result[0];
+  
+    result = await db.select().from(pendingAds).where(eq(pendingAds.id, id)) as any;
+    if (result.length > 0) return result[0];
+  
+    result = await db.select().from(rejectedAds).where(eq(rejectedAds.id, id)) as any;
+    if (result.length > 0) return result[0];
+  } catch (error: any) {
+    if (!(error?.cause?.code === '42P01' || /relation \".*_ads\" does not exist/i.test(String(error?.message)))) {
+      throw error;
+    }
+    // fall through to legacy below if approval tables are missing
+  }
 
   // legacy table fallback
-  result = await db.select().from(ads).where(eq(ads.id, id)) as any;
-  return result[0] ?? null;
+  const legacy = await db.select().from(ads).where(eq(ads.id, id)) as any;
+  return legacy[0] ?? null;
 }
 
 export async function updateAd(id: number, updateData: Partial<NewAd>) {
