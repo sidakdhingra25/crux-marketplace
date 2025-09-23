@@ -46,7 +46,7 @@ export async function POST(
       rating,
       title: title || null,
       comment: comment || null,
-      verified_purchase: false // TODO: Check if user actually purchased the script
+      verified_purchase: false // TODO: Implement purchase verification system
     }
 
     const reviewId = await createScriptReview(reviewData)

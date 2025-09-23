@@ -237,23 +237,7 @@ export default function ScriptsPage() {
     }
   }, [filteredScripts, sortBy])
 
-  // Debug logging for filtering
-  useEffect(() => {
-    console.log("=== DEBUG: Scripts Data Flow ===");
-    console.log("allScripts:", allScripts);
-    console.log("filteredScripts:", filteredScripts);
-    console.log("sortedScripts:", sortedScripts);
-    console.log("Current filters:", { 
-      searchQuery, 
-      selectedCategories, 
-      selectedFrameworks, 
-      selectedPriceCategories, 
-      priceRange, 
-      selectedRatings, 
-      onSaleOnly 
-    });
-    console.log("=== END DEBUG ===");
-  }, [allScripts, filteredScripts, sortedScripts, searchQuery, selectedCategories, selectedFrameworks, selectedPriceCategories, priceRange, selectedRatings, onSaleOnly])
+  // Debug logging removed for production
 
   const handleCategoryChange = (category: string, checked: boolean) => {
     if (checked) {
@@ -919,7 +903,7 @@ export default function ScriptsPage() {
                               transition={{ duration: 0.5, delay: index * 0.05 }}
                               whileHover={{ y: -5, scale: 1.02 }}
                             >
-                              <AdCard ad={item as any} />
+                              <AdCard ad={item as any} variant="script" />
                             </motion.div>
                           );
                         }
@@ -950,6 +934,7 @@ export default function ScriptsPage() {
                                 src={script.image || "/placeholder.jpg"}
                                 alt={script.title}
                                 className={`object-cover transition-transform duration-500 group-hover:scale-110 ${viewMode === "list" ? "w-full h-32 rounded-l-lg" : "w-full h-48 rounded-t-lg"}`}
+                                loading="lazy"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.src = "/placeholder.jpg";

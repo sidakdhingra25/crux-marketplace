@@ -622,7 +622,7 @@ export default function GiveawaysPage() {
                           transition={{ duration: 0.8, delay: index * 0.1 }}
                           whileHover={{ y: -10, scale: 1.02 }}
                         >
-                          <AdCard ad={item as any} />
+                          <AdCard ad={item as any} variant="giveaway" />
                         </motion.div>
                       );
                     }
@@ -651,6 +651,7 @@ export default function GiveawaysPage() {
                                 src={giveaway.image || "/cat.jpg"}
                                 alt={giveaway.title}
                                 className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-110"
+                                loading="lazy"
                               />
                               <motion.div
                                 className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"

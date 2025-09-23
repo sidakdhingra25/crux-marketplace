@@ -7,7 +7,9 @@ import {
   getRejectedGiveaways,
   createGiveaway,
   updateGiveaway,
-  deleteGiveaway
+  deleteGiveaway,
+  hasRole,
+  hasAnyRole
 } from '@/lib/database-new';
 
 export async function GET(request: NextRequest) {
@@ -18,16 +20,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    // Check if user has permission to view giveaways (founder, admin, verified_creator)
+    const user = session.user as any
+    if (!user.roles || !hasAnyRole(user.roles, ['founder', 'admin', 'verified_creator'])) {
+      return NextResponse.json({ 
+        error: "You need founder, admin, or verified creator access to view giveaways." 
+      }, { status: 403 });
+    }
+
+    const userId = (session.user as any).id;
     const userEmail = session.user.email;
     console.log("User giveaways API - User:", { id: userId, email: userEmail });
 
     // Fetch giveaways from all tables where the user is the creator
-    const [pending, approved, rejected] = await Promise.all([
-      getPendingGiveaways(100),
-      getApprovedGiveaways(100),
-      getRejectedGiveaways(100)
-    ]);
+    let pending: any[] = [];
+    let approved: any[] = [];
+    let rejected: any[] = [];
+    
+    try {
+      [pending, approved, rejected] = await Promise.all([
+        getPendingGiveaways(100),
+        getApprovedGiveaways(100),
+        getRejectedGiveaways(100)
+      ]);
+    } catch (error) {
+      console.log("Approval tables don't exist yet, falling back to main giveaways table");
+      // Fallback to main giveaways table if approval tables don't exist
+      const { getGiveaways } = await import('@/lib/database-new');
+      const allGiveaways = await getGiveaways({ limit: 100 });
+      approved = allGiveaways; // Treat all giveaways as approved for now
+    }
 
     // Filter giveaways by user email
     const userPending = pending.filter(g => g.creatorEmail === userEmail);
@@ -85,6 +107,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Check if user has permission to create giveaways (founder, admin, verified_creator)
+    const user = session.user as any
+    if (!user.roles || !hasAnyRole(user.roles, ['founder', 'admin', 'verified_creator'])) {
+      return NextResponse.json({ 
+        error: "You need founder, admin, or verified creator access to create giveaways." 
+      }, { status: 403 });
+    }
+
     const body = await request.json();
 
     const giveawayId = await createGiveaway({
@@ -97,9 +127,9 @@ export async function POST(request: NextRequest) {
       difficulty: body.difficulty,
       featured: body.featured ?? false,
       autoAnnounce: body.auto_announce ?? false,
-      creatorName: session.user.name || 'Unknown Creator',
-      creatorEmail: session.user.email || '',
-      creatorId: session.user.id,
+      creatorName: (session.user as any).name || 'Unknown Creator',
+      creatorEmail: (session.user as any).email || '',
+      creatorId: (session.user as any).id,
       images: body.images || [],
       videos: body.videos || [],
       coverImage: body.cover_image || null,

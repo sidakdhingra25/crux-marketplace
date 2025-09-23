@@ -13,6 +13,7 @@ interface FileUploadProps {
   accept?: string
   maxSize?: number // in MB
   className?: string
+  purpose?: string // "cover", "screenshot", "demo", "trailer"
 }
 
 export default function FileUpload({
@@ -21,7 +22,8 @@ export default function FileUpload({
   selectedFile,
   accept = "image/*",
   maxSize = 5,
-  className = ""
+  className = "",
+  purpose = "screenshot"
 }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [error, setError] = useState<string>("")
@@ -122,7 +124,8 @@ export default function FileUpload({
                   Click to upload or drag and drop
                 </p>
                 <p className="text-sm text-gray-400">
-                  {accept === "image/*" ? "PNG, JPG, GIF up to" : "Files up to"} {maxSize}MB
+                  {accept === "image/*" ? "PNG, JPG, WebP up to" : "Files up to"} {maxSize}MB
+                  {purpose && ` (${purpose})`}
                 </p>
               </div>
             </motion.div>

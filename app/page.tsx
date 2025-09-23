@@ -589,6 +589,7 @@ export default function HomePage() {
                         src={giveaway.image}
                         alt={giveaway.title}
                         className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
                       />
                       <motion.div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
@@ -703,6 +704,7 @@ export default function HomePage() {
                             src={category.image || "/cat.jpg"}
                             alt={category.name}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                             whileHover={{ scale: 1.1 }}
                             transition={{ duration: 0.5 }}
                           />

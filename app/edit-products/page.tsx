@@ -8,8 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 
-// Placeholder for user email (replace with real auth/session)
-const USER_EMAIL = "demo@user.com"
+// This will be replaced with real user authentication/session logic
+// For now, we'll get it from the session or use a placeholder
+const getUserEmail = () => {
+  // TODO: Get from session when authentication is properly implemented
+  return "demo@user.com"
+}
 
 export default function EditProductsPage() {
   const [scripts, setScripts] = useState<any[]>([])
@@ -25,8 +29,9 @@ export default function EditProductsPage() {
       // You may want to filter by seller_email/creator_email
       const allScripts = await getScripts()
       const allGiveaways = await getGiveaways()
-      setScripts(allScripts.filter((s: any) => s.seller_email === USER_EMAIL))
-      setGiveaways(allGiveaways.filter((g: any) => g.creator_email === USER_EMAIL))
+      const userEmail = getUserEmail()
+      setScripts(allScripts.filter((s: any) => s.seller_email === userEmail))
+      setGiveaways(allGiveaways.filter((g: any) => g.creator_email === userEmail))
     }
     fetchData()
   }, [])

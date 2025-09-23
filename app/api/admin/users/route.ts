@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
     const user = session.user as any
     console.log("User roles:", user.roles)
     
-    if (!user.roles || !user.roles.includes('admin')) {
-      console.log("User is not admin")
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+    if (!user.roles || (!user.roles.includes('admin') && !user.roles.includes('founder'))) {
+      console.log("User is not admin or founder")
+      return NextResponse.json({ error: "Admin or founder access required" }, { status: 403 })
     }
 
     console.log("User is admin, fetching users...")

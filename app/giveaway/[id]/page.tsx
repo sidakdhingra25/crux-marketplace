@@ -162,11 +162,12 @@ const GiveawayGallery = ({ images, videos }: { images: string[]; videos: string[
                 </div>
               </div>
             ) : (
-              <img
-                src={currentMedia || "/cat.jpg"}
-                alt="Giveaway preview"
-                className="w-full h-full object-cover"
-              />
+                <img
+                  src={currentMedia || "/cat.jpg"}
+                  alt="Giveaway preview"
+                  className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                  loading="lazy"
+                />
             )}
           </motion.div>
         </AnimatePresence>
@@ -228,7 +229,8 @@ const GiveawayGallery = ({ images, videos }: { images: string[]; videos: string[
                 <img
                   src={media || "/cat.jpg"}
                   alt={`Preview ${index + 1}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                  loading="lazy"
                 />
               )}
             </motion.button>
@@ -237,6 +239,23 @@ const GiveawayGallery = ({ images, videos }: { images: string[]; videos: string[
       )}
     </div>
   )
+}
+
+// Helper function to calculate time left
+function calculateTimeLeft(endDate: string): string {
+  const now = new Date()
+  const end = new Date(endDate)
+  const diff = end.getTime() - now.getTime()
+  
+  if (diff <= 0) return "Ended"
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }
 
 export default function GiveawayDetailPage() {
@@ -322,7 +341,7 @@ export default function GiveawayDetailPage() {
     value: giveaway?.total_value || "$500",
     entries: giveaway?.entries_count || 0,
     maxEntries: giveaway?.max_entries || 1000,
-    timeLeft: "5d 12h", // TODO: Calculate from end_date
+    timeLeft: calculateTimeLeft(giveaway?.end_date || "2024-12-31"),
     endDate: giveaway?.end_date || "2024-12-31",
     difficulty: giveaway?.difficulty || "Medium",
     category: giveaway?.category || "Scripts",

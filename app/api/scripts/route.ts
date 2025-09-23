@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/auth"
-import { createScript, getScripts } from "@/lib/database-new"
+import { createScript, getScripts, hasRole, hasAnyRole } from "@/lib/database-new"
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +11,18 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Check if user has permission to create scripts (founder, admin, verified_creator)
+    const user = session.user as any
+    if (!user.roles || !hasAnyRole(user.roles, ['founder', 'admin', 'verified_creator'])) {
+      return NextResponse.json({ 
+        error: "You need founder, admin, or verified creator access to submit scripts." 
+      }, { status: 403 })
+    }
+
+    // Determine approval status based on user role
+    const isFounderOrAdmin = hasAnyRole(user.roles, ['founder', 'admin'])
+    const approvalStatus = isFounderOrAdmin ? 'approved' : 'pending'
 
     // Validate required fields (derive seller fields from session)
     const requiredFields = ["title", "description", "price", "category", "framework"]
@@ -41,15 +53,21 @@ export async function POST(request: NextRequest) {
       documentationUrl: body.documentation_url || null,
       supportUrl: body.support_url || null,
       version: body.version || "1.0.0",
-      status: "pending",
+      status: approvalStatus as any,
       featured: body.featured || false,
+      id: 0
     })
+
+    const message = isFounderOrAdmin 
+      ? "Script created and approved successfully!" 
+      : "Script submitted successfully! It will be reviewed by an admin before going live."
 
     return NextResponse.json(
       {
         success: true,
-        message: "Script submitted successfully!",
+        message,
         scriptId,
+        status: approvalStatus,
       },
       { status: 201 },
     )

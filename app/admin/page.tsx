@@ -81,12 +81,13 @@ interface Ad {
   created_at: string
 }
 
+// Updated role options to the requested set. Values should match DB enum (lowercase/underscored).
 const roleOptions = [
-  { value: "user", label: "User", icon: Users, color: "bg-blue-500" },
-  { value: "seller", label: "Seller", icon: Package, color: "bg-green-500" },
-  { value: "ads", label: "Ads Manager", icon: Megaphone, color: "bg-purple-500" },
+  { value: "founder", label: "Founder", icon: Crown, color: "bg-indigo-500" },
+  { value: "verified_creator", label: "Verified Creator", icon: UserCheck, color: "bg-emerald-500" },
+  { value: "crew", label: "Crew", icon: Users, color: "bg-sky-500" },
+  { value: "admin", label: "Admin", icon: Shield, color: "bg-red-500" },
   { value: "moderator", label: "Moderator", icon: Shield, color: "bg-yellow-500" },
-  { value: "admin", label: "Admin", icon: Crown, color: "bg-red-500" },
 ]
 
 export default function AdminPage() {

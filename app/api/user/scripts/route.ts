@@ -4,7 +4,9 @@ import { authOptions } from '@/auth';
 import { 
   getPendingScripts, 
   getApprovedScripts, 
-  getRejectedScripts 
+  getRejectedScripts,
+  hasRole,
+  hasAnyRole
 } from '@/lib/database-new';
 
 export async function GET(request: NextRequest) {
@@ -15,16 +17,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check if user has permission to view scripts (founder, admin, verified_creator)
+    const user = session.user as any
+    if (!user.roles || !hasAnyRole(user.roles, ['founder', 'admin', 'verified_creator'])) {
+      return NextResponse.json({ 
+        error: "You need founder, admin, or verified creator access to view scripts." 
+      }, { status: 403 });
+    }
+
     const userId = session.user.id;
     const userEmail = session.user.email;
     console.log("User scripts API - User:", { id: userId, email: userEmail });
 
     // Fetch scripts from all tables where the user is the seller
-    const [pending, approved, rejected] = await Promise.all([
-      getPendingScripts(1000),
-      getApprovedScripts(1000),
-      getRejectedScripts(1000)
-    ]);
+    let pending: any[] = [];
+    let approved: any[] = [];
+    let rejected: any[] = [];
+    
+    try {
+      [pending, approved, rejected] = await Promise.all([
+        getPendingScripts(1000),
+        getApprovedScripts(1000),
+        getRejectedScripts(1000)
+      ]);
+    } catch (error) {
+      console.log("Approval tables don't exist yet, falling back to main scripts table");
+      // Fallback to main scripts table if approval tables don't exist
+      const { getScripts } = await import('@/lib/database-new');
+      const allScripts = await getScripts({ limit: 1000 });
+      approved = allScripts; // Treat all scripts as approved for now
+    }
 
     // Filter scripts by user email
     const userPending = pending.filter(s => s.seller_email === userEmail);

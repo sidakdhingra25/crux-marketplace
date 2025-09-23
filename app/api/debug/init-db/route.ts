@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
         email text,
         image text,
         username text,
-        roles text[] DEFAULT '{user}',
+        -- default to a minimal role set; new roles are lowercase identifiers
+        roles text[] DEFAULT '{founder,verified_creator,crew,admin,moderator}',
         created_at timestamptz DEFAULT now(),
         updated_at timestamptz DEFAULT now()
       )

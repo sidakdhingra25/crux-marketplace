@@ -122,7 +122,8 @@ const MediaSlider = ({ images, screenshots, videos, title }: {
                <img
                  src={media}
                  alt={`${title} - Media ${index + 1}`}
-                 className="w-full h-full object-contain bg-gray-800"
+                 className="w-full h-full object-contain bg-gray-800 transition-transform duration-500 hover:scale-105"
+                 loading="lazy"
                  onError={(e) => {
                    const target = e.target as HTMLImageElement;
                    target.style.display = 'none';
@@ -285,12 +286,13 @@ export default function ScriptDetailPage() {
           >
             {/* Cover Image */}
             <div>
-              <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden">
+              <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
                 {coverImage ? (
                   <img
                     src={coverImage}
                     alt={script.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                    loading="eager"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';

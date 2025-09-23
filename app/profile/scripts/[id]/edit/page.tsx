@@ -202,11 +202,12 @@ export default function EditScriptPage() {
     }
   }
 
-  const handleFileUpload = async (file: File, type: "image" | "video") => {
+  const handleFileUpload = async (file: File, type: "image" | "video", purpose: string = "screenshot") => {
     try {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("type", type)
+      formData.append("purpose", purpose)
 
       const response = await fetch("/api/upload", {
         method: "POST",
@@ -239,7 +240,7 @@ export default function EditScriptPage() {
         break
       }
 
-      const url = await handleFileUpload(file, "image")
+      const url = await handleFileUpload(file, "image", "screenshot")
       if (url) {
         newScreenshots.push(url)
       }
@@ -258,7 +259,7 @@ export default function EditScriptPage() {
     if (!files || files.length === 0) return
 
     const file = files[0]
-    const url = await handleFileUpload(file, "image")
+    const url = await handleFileUpload(file, "image", "cover")
     if (url) {
       setMedia(prev => ({
         ...prev,
@@ -281,7 +282,7 @@ export default function EditScriptPage() {
     const newVideos: string[] = []
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const url = await handleFileUpload(file, "video")
+      const url = await handleFileUpload(file, "video", "demo")
       if (url) {
         newVideos.push(url)
       }

@@ -3,7 +3,7 @@ CREATE TYPE "public"."entry_status" AS ENUM('active', 'disqualified', 'winner');
 CREATE TYPE "public"."giveaway_difficulty" AS ENUM('Easy', 'Medium', 'Hard');--> statement-breakpoint
 CREATE TYPE "public"."giveaway_status" AS ENUM('active', 'ended', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."script_status" AS ENUM('pending', 'approved', 'rejected');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('user', 'moderator', 'admin', 'seller', 'ads');--> statement-breakpoint
+CREATE TYPE "public"."user_role" AS ENUM('founder', 'verified_creator', 'crew', 'admin', 'moderator');--> statement-breakpoint
 CREATE TABLE "ads" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
@@ -124,7 +124,7 @@ CREATE TABLE "users" (
 	"email" text,
 	"image" text,
 	"username" text,
-	"roles" text[] DEFAULT '{"user"}',
+	"roles" text[] DEFAULT '{"founder","verified_creator","crew","admin","moderator"}',
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
 );

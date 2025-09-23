@@ -1,13 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/auth"
-import { createGiveaway, createGiveawayRequirement, createGiveawayPrize, getGiveaways } from "@/lib/database-new"
+import { createGiveaway, createGiveawayRequirement, createGiveawayPrize, getGiveaways, hasRole, hasAnyRole } from "@/lib/database-new"
 
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
     const { giveaway, requirements, prizes } = data
     const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check if user has permission to create giveaways (founder, admin, verified_creator)
+    const user = session.user as any
+    if (!user.roles || !hasAnyRole(user.roles, ['founder', 'admin', 'verified_creator'])) {
+      return NextResponse.json({ 
+        error: "You need founder, admin, or verified creator access to submit giveaways." 
+      }, { status: 403 })
+    }
+
+    // Determine approval status based on user role
+    const isFounderOrAdmin = hasAnyRole(user.roles, ['founder', 'admin'])
+    const approvalStatus = isFounderOrAdmin ? 'active' : 'pending'
 
     // Validate required fields
     if (!giveaway.title || !giveaway.description || !giveaway.total_value || !giveaway.end_date) {
@@ -18,6 +34,7 @@ export async function POST(request: NextRequest) {
     const giveawayId = await createGiveaway({
       ...giveaway,
       creator_id: session ? String((session.user as any)?.id || "") : null,
+      status: approvalStatus as any,
     })
 
     // Create requirements
@@ -40,7 +57,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, id: giveawayId }, { status: 201 })
+    const message = isFounderOrAdmin 
+      ? "Giveaway created and approved successfully!" 
+      : "Giveaway submitted successfully! It will be reviewed by an admin before going live."
+
+    return NextResponse.json({ 
+      success: true, 
+      id: giveawayId, 
+      message,
+      status: approvalStatus 
+    }, { status: 201 })
   } catch (error) {
     console.error("Error creating giveaway:", error)
     return NextResponse.json({ error: "Failed to create giveaway" }, { status: 500 })

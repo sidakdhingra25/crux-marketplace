@@ -13,6 +13,30 @@ import type {
   NewGiveawayRequirement, NewGiveawayPrize 
 } from './schema';
 
+// Valid roles in the system
+export const VALID_ROLES = ['founder', 'verified_creator', 'crew', 'admin', 'moderator', 'user'] as const;
+export type ValidRole = typeof VALID_ROLES[number];
+
+// Helper function to validate roles
+export function validateRoles(roles: string[]): ValidRole[] {
+  return roles.filter(role => VALID_ROLES.includes(role as ValidRole)) as ValidRole[];
+}
+
+// Helper function to check if user has a specific role
+export function hasRole(userRoles: string[], requiredRole: ValidRole): boolean {
+  return userRoles.includes(requiredRole);
+}
+
+// Helper function to check if user has any of the required roles
+export function hasAnyRole(userRoles: string[], requiredRoles: ValidRole[]): boolean {
+  return requiredRoles.some(role => userRoles.includes(role));
+}
+
+// Helper function to check if user has all required roles
+export function hasAllRoles(userRoles: string[], requiredRoles: ValidRole[]): boolean {
+  return requiredRoles.every(role => userRoles.includes(role));
+}
+
 // User functions
 export async function upsertUser(user: {
   id: string;
@@ -22,7 +46,23 @@ export async function upsertUser(user: {
   username?: string | null;
   forceAdminIfUsername?: string | null;
 }) {
-  const defaultRoles = ['admin'];
+  // Check if user already exists
+  const existingUser = await getUserById(user.id);
+  
+  // Determine roles based on user status
+  let userRoles: string[];
+  
+  if (existingUser) {
+    // Existing user: Keep their current roles (don't overwrite)
+    userRoles = validateRoles(existingUser.roles || ['user']);
+  } else {
+    // New user: Assign default roles
+    if (user.forceAdminIfUsername && user.username === user.forceAdminIfUsername) {
+      userRoles = ['founder']; // Give founder role to special user
+    } else {
+      userRoles = ['user']; // Default role for new users
+    }
+  }
   
   await db.insert(users).values({
     id: user.id,
@@ -30,7 +70,7 @@ export async function upsertUser(user: {
     email: user.email ?? null,
     image: user.image ?? null,
     username: user.username ?? null,
-    roles: defaultRoles,
+    roles: userRoles,
   }).onConflictDoUpdate({
     target: users.id,
     set: {
@@ -38,7 +78,8 @@ export async function upsertUser(user: {
       email: user.email ?? null,
       image: user.image ?? null,
       username: user.username ?? null,
-      roles: defaultRoles,
+      // Don't overwrite roles for existing users
+      roles: existingUser ? existingUser.roles : userRoles,
       updatedAt: new Date(),
     },
   });
@@ -61,10 +102,21 @@ export async function getAllUsers(limit?: number) {
 }
 
 export async function updateUserRole(userId: string, roles: string[]) {
+  console.log(`Updating user ${userId} roles to:`, roles);
+  
+  // Validate and filter roles to only include valid ones
+  const validRoles = validateRoles(roles);
+  
+  if (validRoles.length === 0) {
+    throw new Error('No valid roles provided. Valid roles are: ' + VALID_ROLES.join(', '));
+  }
+  
   const result = await db.update(users)
-    .set({ roles: roles, updatedAt: new Date() })
+    .set({ roles: validRoles, updatedAt: new Date() })
     .where(eq(users.id, userId))
     .returning();
+  
+  console.log(`User ${userId} roles updated successfully:`, result[0]?.roles);
   return result[0] ?? null;
 }
 
@@ -785,8 +837,8 @@ export async function createAd(adData: NewAd) {
     createdBy: (adData as any).createdBy ?? (adData as any).created_by,
   };
 
-  // All new ads go to pending_ads
-  const result = await db.insert(pendingAds).values(mapped as any).returning({ id: pendingAds.id });
+  // Insert into the main ads table
+  const result = await db.insert(ads).values(mapped as any).returning({ id: ads.id });
   return result[0]?.id;
 }
 
@@ -795,81 +847,69 @@ export async function getAds(filters?: {
   category?: string;
   limit?: number;
 }) {
-  const maxRetries = 3;
-  let lastError: any;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // Public listing from approved_ads only
-      const conditionsAds: any[] = [];
-      if (filters?.status) conditionsAds.push(eq(approvedAds.status, filters.status as any));
-      if (filters?.category) conditionsAds.push(eq(approvedAds.category, filters.category));
-      const limitVal = filters?.limit || 50;
-      return await (
-        (conditionsAds.length
-          ? db.select().from(approvedAds).where(and(...conditionsAds))
-          : db.select().from(approvedAds)
-        )
-        .orderBy(desc(approvedAds.priority), desc(approvedAds.createdAt))
-        .limit(limitVal)
-      ) as any;
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Database query attempt ${attempt} failed:`, error);
-      // Fallback: if approval tables don't exist, use legacy ads table
-      if (error?.cause?.code === '42P01' || /relation \".*_ads\" does not exist/i.test(String(error?.message))) {
-        try {
-          const legacyConditions: any[] = [];
-          if (filters?.status) legacyConditions.push(eq(ads.status, filters.status as any));
-          if (filters?.category) legacyConditions.push(eq(ads.category, filters.category));
-          const limitVal = filters?.limit || 50;
-          const base = legacyConditions.length
-            ? db.select().from(ads).where(and(...legacyConditions))
-            : db.select().from(ads);
-          return await base.orderBy(desc(ads.priority), desc(ads.createdAt)).limit(limitVal) as any;
-        } catch (fallbackError) {
-          lastError = fallbackError;
-          break;
-        }
-      }
+  try {
+    // Use the main ads table directly (simplified approach)
+    const conditions: any[] = [];
+    if (filters?.status) conditions.push(eq(ads.status, filters.status as any));
+    if (filters?.category) conditions.push(eq(ads.category, filters.category));
+    
+    const limitVal = filters?.limit || 50;
+    
+    const query = conditions.length
+      ? db.select().from(ads).where(and(...conditions))
+      : db.select().from(ads);
+    
+    return await query
+      .orderBy(desc(ads.priority), desc(ads.createdAt))
+      .limit(limitVal) as any;
       
-      // If it's a connection limit error, wait before retrying
-      if (error.cause?.code === 'XATA_CONCURRENCY_LIMIT') {
-        const waitTime = attempt * 1000; // Wait 1s, 2s, 3s
-        console.log(`Waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
-      
-      // For other errors, don't retry
-      break;
-    }
+  } catch (error: any) {
+    console.error('Error fetching ads:', error);
+    throw error;
   }
-  
-  throw new Error(`Failed to fetch ads after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+}
+
+// Helper function to get ads for specific page types
+export async function getAdsForPage(pageType: 'scripts' | 'giveaways', limit?: number) {
+  try {
+    const allAds = await getAds({ status: "active", limit: 100 });
+    
+    let filteredAds;
+    if (pageType === 'scripts') {
+      // Show ads with category "both" or "scripts"
+      filteredAds = allAds.filter((ad: any) => 
+        ad.category?.toLowerCase() === "both" || 
+        ad.category?.toLowerCase() === "scripts"
+      );
+    } else if (pageType === 'giveaways') {
+      // Show ads with category "both" or "giveaways"
+      filteredAds = allAds.filter((ad: any) => 
+        ad.category?.toLowerCase() === "both" || 
+        ad.category?.toLowerCase() === "giveaways"
+      );
+    } else {
+      filteredAds = [];
+    }
+    
+    // Apply limit
+    const limitVal = limit || 10;
+    return filteredAds.slice(0, limitVal);
+    
+  } catch (error: any) {
+    console.error(`Error fetching ads for ${pageType}:`, error);
+    throw error;
+  }
 }
 
 export async function getAdById(id: number) {
-  // Look in approved first, then pending, then rejected, then legacy ads
   try {
-    let result: any = await db.select().from(approvedAds).where(eq(approvedAds.id, id));
-    if (result.length > 0) return result[0];
-  
-    result = await db.select().from(pendingAds).where(eq(pendingAds.id, id)) as any;
-    if (result.length > 0) return result[0];
-  
-    result = await db.select().from(rejectedAds).where(eq(rejectedAds.id, id)) as any;
-    if (result.length > 0) return result[0];
+    // Use the main ads table directly
+    const result = await db.select().from(ads).where(eq(ads.id, id)) as any;
+    return result[0] ?? null;
   } catch (error: any) {
-    if (!(error?.cause?.code === '42P01' || /relation \".*_ads\" does not exist/i.test(String(error?.message)))) {
-      throw error;
-    }
-    // fall through to legacy below if approval tables are missing
+    console.error('Error fetching ad by ID:', error);
+    throw error;
   }
-
-  // legacy table fallback
-  const legacy = await db.select().from(ads).where(eq(ads.id, id)) as any;
-  return legacy[0] ?? null;
 }
 
 export async function updateAd(id: number, updateData: Partial<NewAd>) {
@@ -877,10 +917,7 @@ export async function updateAd(id: number, updateData: Partial<NewAd>) {
     const fields = Object.keys(updateData);
     if (fields.length === 0) return null;
     const updateObject: any = { updatedAt: new Date(), ...(updateData as any) };
-    let result: any = await db.update(approvedAds).set(updateObject).where(eq(approvedAds.id, id)).returning();
-    if (result.length === 0) {
-      result = await db.update(pendingAds).set(updateObject).where(eq(pendingAds.id, id)).returning() as any;
-    }
+    const result = await db.update(ads).set(updateObject).where(eq(ads.id, id)).returning();
     return result[0] ?? null;
   } catch (error) {
     console.error('Error updating ad:', error);
@@ -890,17 +927,8 @@ export async function updateAd(id: number, updateData: Partial<NewAd>) {
 
 export async function deleteAd(id: number) {
   try {
-    // Try delete across all ad tables
-    let result = await db.delete(approvedAds).where(eq(approvedAds.id, id)).returning({ id: approvedAds.id });
-    if (result.length === 0) {
-      result = await db.delete(pendingAds).where(eq(pendingAds.id, id)).returning({ id: pendingAds.id });
-    }
-    if (result.length === 0) {
-      result = await db.delete(rejectedAds).where(eq(rejectedAds.id, id)).returning({ id: rejectedAds.id });
-    }
-    if (result.length === 0) {
-      result = await db.delete(ads).where(eq(ads.id, id)).returning({ id: ads.id });
-    }
+    // Delete from the main ads table
+    const result = await db.delete(ads).where(eq(ads.id, id)).returning({ id: ads.id });
     return result.length > 0;
   } catch (error) {
     console.error('Error deleting ad:', error);

@@ -375,6 +375,7 @@ export default function CategoryPage() {
                           src={coverImage}
                           alt={script.title}
                           className="w-full h-48 object-cover transition-transform duration-300 hover:scale-110"
+                          loading="lazy"
                         />
                         {discount > 0 && (
                           <Badge className="absolute top-2 right-2 bg-red-500 text-white">

@@ -14,7 +14,7 @@ type User = {
   email: string | null
   image: string | null
   username: string | null
-  role: "user" | "moderator" | "admin"
+  role: "founder" | "verified_creator" | "crew" | "admin" | "moderator"
 }
 
 export default function AdminPanel() {
@@ -125,9 +125,11 @@ export default function AdminPanel() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="bg-gray-900 border-gray-800 text-white">
-                              <SelectItem value="user">User</SelectItem>
-                              <SelectItem value="moderator">Moderator</SelectItem>
+                              <SelectItem value="founder">Founder</SelectItem>
+                              <SelectItem value="verified_creator">Verified Creator</SelectItem>
+                              <SelectItem value="crew">Crew</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="moderator">Moderator</SelectItem>
                             </SelectContent>
                           </Select>
                           <Button disabled className={`h-8 px-2 ${savingId === u.id ? "animate-pulse" : "opacity-0"}`}>Save</Button>

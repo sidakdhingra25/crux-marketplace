@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/auth"
-import { createAd, getAds } from "@/lib/database-new"
+import { createAd, getAds, hasRole, hasAnyRole } from "@/lib/database-new"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,12 +12,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Check if user has permission to create ads (founder, admin, moderator, verified_creator)
+    const user = session.user as any
+    if (!user.roles || !hasAnyRole(user.roles, ['founder', 'admin', 'moderator', 'verified_creator'])) {
+      return NextResponse.json({ 
+        error: "You need founder, admin, moderator, or verified creator access to create ads." 
+      }, { status: 403 })
+    }
+
+    // Determine approval status based on user role
+    const isFounderOrAdmin = hasAnyRole(user.roles, ['founder', 'admin'])
+    const approvalStatus = isFounderOrAdmin ? 'active' : 'pending'
+
     // Validate required fields
     const requiredFields = ["title", "description", "category"]
     for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 })
       }
+    }
+
+    // Validate category
+    const validCategories = ["both", "scripts", "giveaways"]
+    if (!validCategories.includes(body.category.toLowerCase())) {
+      return NextResponse.json({ 
+        error: `Invalid category. Must be one of: ${validCategories.join(", ")}` 
+      }, { status: 400 })
     }
 
     // Create the ad in the database
@@ -27,18 +47,23 @@ export async function POST(request: NextRequest) {
       image_url: body.image_url || null,
       link_url: body.link_url || null,
       category: body.category,
-      status: body.status || "active",
+      status: approvalStatus,
       priority: body.priority || 1,
       start_date: body.start_date || new Date().toISOString(),
       end_date: body.end_date || null,
       created_by: String((session.user as any)?.id || ""),
     })
 
+    const message = isFounderOrAdmin 
+      ? "Ad created and approved successfully!" 
+      : "Ad submitted successfully! It will be reviewed by an admin before going live."
+
     return NextResponse.json(
       {
         success: true,
-        message: "Ad created successfully!",
+        message,
         adId,
+        status: approvalStatus,
       },
       { status: 201 },
     )

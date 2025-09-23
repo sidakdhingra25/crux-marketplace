@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user has admin role
-    const userRoles = session.user.roles || [];
+    const userRoles = (session.user as any).roles || [];
     if (!userRoles.includes('admin')) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
@@ -102,7 +102,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Check if user has admin role
-    const userRoles = session.user.roles || [];
+    const userRoles = (session.user as any).roles || [];
     if (!userRoles.includes('admin')) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
@@ -117,12 +117,12 @@ export async function PATCH(request: NextRequest) {
     let result: boolean;
     
     if (status === 'approved') {
-      result = await approveGiveaway(giveawayId, session.user.id, adminNotes);
+      result = await approveGiveaway(giveawayId, (session.user as any).id, adminNotes);
     } else if (status === 'rejected') {
       if (!reason) {
         return NextResponse.json({ error: "Rejection reason is required" }, { status: 400 });
       }
-      result = await rejectGiveaway(giveawayId, session.user.id, reason, adminNotes);
+      result = await rejectGiveaway(giveawayId, (session.user as any).id, reason, adminNotes);
     } else {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }

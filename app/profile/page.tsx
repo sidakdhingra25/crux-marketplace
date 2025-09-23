@@ -184,6 +184,10 @@ export default function ProfilePage() {
     router.push(`/profile/giveaways/${giveawayId}/edit`)
   }
 
+  const handleEditAd = (adId: number) => {
+    router.push(`/profile/ads/${adId}/edit`)
+  }
+
   const handleDeleteScript = async (scriptId: number) => {
     if (!confirm("Are you sure you want to delete this script?")) return
 
@@ -312,7 +316,7 @@ export default function ProfilePage() {
         {/* Content */}
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5 bg-gray-800/50">
+            <TabsList className="grid w-full grid-cols-6 bg-gray-800/50">
               <TabsTrigger value="overview" className="data-[state=active]:bg-orange-500">
                 <User className="h-4 w-4 mr-2" />
                 Overview
@@ -324,6 +328,10 @@ export default function ProfilePage() {
               <TabsTrigger value="giveaways" className="data-[state=active]:bg-orange-500">
                 <Gift className="h-4 w-4 mr-2" />
                 Giveaways ({stats.totalGiveaways})
+              </TabsTrigger>
+              <TabsTrigger value="ads" className="data-[state=active]:bg-orange-500">
+                <Tag className="h-4 w-4 mr-2" />
+                Ads ({stats.totalAds})
               </TabsTrigger>
               <TabsTrigger value="entries" className="data-[state=active]:bg-orange-500">
                 <Sparkles className="h-4 w-4 mr-2" />
@@ -471,7 +479,8 @@ export default function ProfilePage() {
                             <img
                               src={script.screenshots[0]}
                               alt={script.title}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -582,7 +591,8 @@ export default function ProfilePage() {
                             <img
                               src={giveaway.images[0]}
                               alt={giveaway.title}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -659,6 +669,105 @@ export default function ProfilePage() {
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Create Your First Giveaway
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </motion.div>
+            </TabsContent>
+
+            {/* Ads Tab */}
+            <TabsContent value="ads" className="space-y-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-white">My Ads</h2>
+                  <Button 
+                    onClick={() => router.push('/admin')}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Ad
+                  </Button>
+                </div>
+
+                {ads.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {ads.map((ad) => (
+                      <Card key={ad.id} className="bg-gray-800/30 border-gray-700/50 hover:border-orange-500/50 transition-all duration-300">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="secondary" className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                              {ad.category}
+                            </Badge>
+                            <Badge className={`text-xs ${getStatusColor(ad.status)}`}>
+                              {ad.status}
+                            </Badge>
+                          </div>
+                          <CardTitle className="text-white text-lg line-clamp-2">
+                            {ad.title}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-gray-400 text-sm mb-4 line-clamp-3">
+                            {ad.description}
+                          </p>
+                          {ad.image_url && (
+                            <div className="w-full h-32 rounded-lg overflow-hidden mb-4">
+                              <img
+                                src={ad.image_url}
+                                alt={ad.title}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-gray-500">
+                              Created: {new Date(ad.created_at).toLocaleDateString()}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditAd(ad.id)}
+                                className="text-blue-400 hover:text-blue-300"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteAd(ad.id)}
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="bg-gray-800/30 border-gray-700/50">
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Tag className="h-16 w-16 text-gray-500 mb-4" />
+                      <h3 className="text-xl font-semibold text-white mb-2">No ads yet</h3>
+                      <p className="text-gray-400 text-center mb-6">
+                        Start creating your first ad to promote your content
+                      </p>
+                      <Button 
+                        onClick={() => router.push('/admin')}
+                        className="bg-orange-600 hover:bg-orange-700 text-white"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Your First Ad
                       </Button>
                     </CardContent>
                   </Card>

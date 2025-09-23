@@ -2,7 +2,8 @@ import { pgTable, text, timestamp, boolean, integer, numeric, pgEnum } from 'dri
 import { relations } from 'drizzle-orm';
 
 // Enums
-export const userRoleEnum = pgEnum('user_role', ['user', 'moderator', 'admin', 'seller', 'ads']);
+// Updated roles to the requested set. Use lowercase identifiers for DB enum values.
+export const userRoleEnum = pgEnum('user_role', ['founder', 'verified_creator', 'crew', 'admin', 'moderator', 'user']);
 export const scriptStatusEnum = pgEnum('script_status', ['pending', 'approved', 'rejected']);
 export const giveawayDifficultyEnum = pgEnum('giveaway_difficulty', ['Easy', 'Medium', 'Hard']);
 export const giveawayStatusEnum = pgEnum('giveaway_status', ['active', 'ended', 'cancelled']);

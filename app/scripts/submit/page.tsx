@@ -3,6 +3,8 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { motion, useInView } from "framer-motion"
 import {
   Upload,
@@ -64,6 +66,54 @@ const AnimatedParticles = () => {
 }
 
 export default function SubmitScriptPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  // Check if user has verified_creator role
+  const hasVerifiedCreatorRole = session?.user && 
+    (session.user as any).roles && 
+    (session.user as any).roles.includes('verified_creator')
+
+  // Redirect if not authenticated or doesn't have verified_creator role
+  if (status === "loading") {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  }
+
+  if (!session) {
+    router.push('/auth/signin')
+    return null
+  }
+
+  if (!hasVerifiedCreatorRole) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 border border-orange-200">
+              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-orange-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                Verified Creator Access Required
+              </h1>
+              <p className="text-gray-600 mb-6">
+                Only verified creators can submit scripts. Please contact an admin to get verified creator access.
+              </p>
+              <Button 
+                onClick={() => router.push('/')}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg"
+              >
+                Go Back Home
+              </Button>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
   const formRef = useRef(null)
   const previewRef = useRef(null)
 
@@ -166,11 +216,12 @@ export default function SubmitScriptPage() {
     setTags(tags.map((t) => (t.id === id ? { ...t, text } : t)))
   }
 
-  const handleFileUpload = async (file: File, type: "image" | "video") => {
+  const handleFileUpload = async (file: File, type: "image" | "video", purpose: string = "screenshot") => {
     try {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("type", type)
+      formData.append("purpose", purpose)
 
       const response = await fetch("/api/upload", {
         method: "POST",
@@ -203,7 +254,7 @@ export default function SubmitScriptPage() {
         break
       }
 
-      const url = await handleFileUpload(file, "image")
+      const url = await handleFileUpload(file, "image", "screenshot")
       if (url) {
         newScreenshots.push(url)
       }
@@ -222,7 +273,7 @@ export default function SubmitScriptPage() {
     if (!files || files.length === 0) return
 
     const file = files[0]
-    const url = await handleFileUpload(file, "image")
+    const url = await handleFileUpload(file, "image", "cover")
     if (url) {
       setMedia(prev => ({
         ...prev,
@@ -238,7 +289,7 @@ export default function SubmitScriptPage() {
     const newVideos: string[] = []
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const url = await handleFileUpload(file, "video")
+      const url = await handleFileUpload(file, "video", "demo")
       if (url) {
         newVideos.push(url)
       }
