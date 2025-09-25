@@ -3,7 +3,7 @@ import { eq, and, or, like, gte, lte, sql, desc, getTableColumns } from 'drizzle
 import { 
   users, scripts, pendingScripts, approvedScripts, rejectedScripts, 
   giveaways, pendingGiveaways, approvedGiveaways, rejectedGiveaways, 
-  giveawayEntries, giveawayReviews, scriptReviews, ads, 
+  giveawayEntries, giveawayReviews, scriptReviews, 
   giveawayRequirements, giveawayPrizes, pendingAds, approvedAds, rejectedAds,
   type Script, type Giveaway 
 } from './schema';
@@ -12,6 +12,7 @@ import type {
   NewGiveawayReview, NewScriptReview, NewAd, 
   NewGiveawayRequirement, NewGiveawayPrize 
 } from './schema';
+import { validateFrameworks, isValidFramework } from './constants';
 
 // Valid roles in the system
 export const VALID_ROLES = ['founder', 'verified_creator', 'crew', 'admin', 'moderator', 'user'] as const;
@@ -121,11 +122,20 @@ export async function updateUserRole(userId: string, roles: string[]) {
 }
 
 // Script functions
-export async function createScript(scriptData: NewScript): Promise<number> {
+export async function createScript(scriptData: NewScript & { framework?: string | string[] }): Promise<number> {
   const timestamp = Math.floor(Date.now() / 1000);
   const randomSuffix = Math.floor(Math.random() * 10000);
   const id = timestamp + randomSuffix;
   
+  const frameworkArray = Array.isArray((scriptData as any).framework)
+    ? ((scriptData as any).framework as string[])
+    : (typeof (scriptData as any).framework === 'string' && (scriptData as any).framework
+        ? [String((scriptData as any).framework)]
+        : []);
+
+  // Validate and filter frameworks
+  const validatedFrameworks = validateFrameworks(frameworkArray);
+
   const scriptWithDefaults = {
     ...scriptData,
     id,
@@ -137,7 +147,9 @@ export async function createScript(scriptData: NewScript): Promise<number> {
     screenshots: scriptData.screenshots || [],
     tags: scriptData.tags || [],
     features: scriptData.features || [],
-    requirements: scriptData.requirements || []
+    requirements: scriptData.requirements || [],
+    // Normalize framework as text[] for DB with validation
+    framework: validatedFrameworks,
   };
   
   const result = await db
@@ -150,7 +162,7 @@ export async function createScript(scriptData: NewScript): Promise<number> {
 
 export type ScriptFilters = {
   category?: string;
-  framework?: string;
+  framework?: string | string[];
   status?: string;
   featured?: boolean;
   limit?: number;
@@ -172,7 +184,9 @@ export async function getScripts(filters?: ScriptFilters) {
     }
     
     if (filters?.framework) {
-      conditions.push(eq(approvedScripts.framework, filters.framework));
+      const frameworks = Array.isArray(filters.framework) ? filters.framework : [filters.framework]
+      // approvedScripts.framework is text[] now; use SQL ANY/overlap
+      conditions.push(sql`(${approvedScripts.framework}) && ${frameworks}` as any)
     }
     
     if (filters?.featured) {
@@ -364,33 +378,59 @@ export async function rejectScript(scriptId: number, adminId: string, rejectionR
 }
 
 // Legacy function for backward compatibility
-export async function updateScript(id: number, updateData: Partial<NewScript>) {
+export async function updateScript(id: number, updateData: any) {
   try {
     console.log('updateScript called with:', { id, updateData });
-    
-    const fields = Object.keys(updateData);
-    if (fields.length === 0) return null;
-    
-    // Build the update object with all fields at once
-    const updateObject: any = { updatedAt: new Date() };
-    
-    // Add all the update fields
-    Object.entries(updateData).forEach(([key, value]) => {
-      if (value !== undefined) {
-        updateObject[key] = value;
-      }
-    });
-    
-    console.log('Update object:', updateObject);
-    
-    // Execute the update
-    const result = await db.update(scripts)
-      .set(updateObject)
-      .where(eq(scripts.id, id))
+
+    // Map incoming payload keys (may be snake_case) to schema property names
+    const mappedUpdate: any = { updatedAt: new Date() };
+
+    const assignIfDefined = (prop: string, value: any) => {
+      if (value !== undefined) mappedUpdate[prop] = value;
+    };
+
+    // Simple passthrough fields (same casing as schema)
+    assignIfDefined('title', updateData.title);
+    assignIfDefined('description', updateData.description);
+    if (updateData.price !== undefined) assignIfDefined('price', Number(updateData.price));
+    if (updateData.originalPrice !== undefined) assignIfDefined('originalPrice', updateData.originalPrice === null ? null : Number(updateData.originalPrice));
+    // Accept snake_case aliases
+    if (updateData.original_price !== undefined) assignIfDefined('originalPrice', updateData.original_price === null ? null : Number(updateData.original_price));
+    assignIfDefined('category', updateData.category);
+    // Frameworks: accept string or array and validate
+    if (updateData.framework !== undefined) {
+      const arrayValue = Array.isArray(updateData.framework) ? updateData.framework : (updateData.framework ? [updateData.framework] : []);
+      assignIfDefined('framework', validateFrameworks(arrayValue));
+    }
+    assignIfDefined('seller_name', updateData.seller_name);
+    assignIfDefined('seller_email', updateData.seller_email);
+    assignIfDefined('tags', updateData.tags);
+    assignIfDefined('features', updateData.features);
+    assignIfDefined('requirements', updateData.requirements);
+    assignIfDefined('images', updateData.images);
+    assignIfDefined('videos', updateData.videos);
+    assignIfDefined('screenshots', updateData.screenshots);
+    // Media and links with snake_case aliases
+    if (updateData.coverImage !== undefined) assignIfDefined('coverImage', updateData.coverImage);
+    if (updateData.cover_image !== undefined) assignIfDefined('coverImage', updateData.cover_image);
+    if (updateData.demoUrl !== undefined) assignIfDefined('demoUrl', updateData.demoUrl);
+    if (updateData.demo_url !== undefined) assignIfDefined('demoUrl', updateData.demo_url);
+    if (updateData.documentationUrl !== undefined) assignIfDefined('documentationUrl', updateData.documentationUrl);
+    if (updateData.documentation_url !== undefined) assignIfDefined('documentationUrl', updateData.documentation_url);
+    if (updateData.supportUrl !== undefined) assignIfDefined('supportUrl', updateData.supportUrl);
+    if (updateData.support_url !== undefined) assignIfDefined('supportUrl', updateData.support_url);
+    assignIfDefined('version', updateData.version);
+    if (updateData.featured !== undefined) assignIfDefined('featured', Boolean(updateData.featured));
+
+    console.log('Mapped update object (approved_scripts):', mappedUpdate);
+
+    // Update only the approved_scripts table as requested
+    const result = await db.update(approvedScripts)
+      .set(mappedUpdate)
+      .where(eq(approvedScripts.id, id))
       .returning();
-    
-    console.log('Update result:', result);
-    
+
+    console.log('Update result (approved_scripts):', result);
     return result[0] ?? null;
   } catch (error) {
     console.error('Error updating script:', error);
@@ -620,7 +660,7 @@ export async function getApprovedGiveaways(limit?: number): Promise<any[]> {
     } catch (error: any) {
       lastError = error;
       if (error?.cause?.code === 'XATA_CONCURRENCY_LIMIT' || error?.cause?.code === 'CONNECT_TIMEOUT') {
-        const waitTime = attempt * 500;
+        const waitTime = attempt * 200;
         await new Promise(r => setTimeout(r, waitTime));
         continue;
       }
@@ -815,11 +855,11 @@ export async function getScriptReviews(scriptId: number) {
     .orderBy(desc(scriptReviews.createdAt));
 }
 
-// Ad functions
-export async function createAd(adData: NewAd) {
-  // Generate a unique ID for Xata Lite compatibility
-  // Use a smaller number that fits PostgreSQL integer limits
-  const timestamp = Math.floor(Date.now() / 1000); // Convert to seconds
+// Ad functions - using new approval system
+
+// Create ad (routes to pending or approved based on user role)
+export async function createAd(adData: NewAd & { status?: string }) {
+  const timestamp = Math.floor(Date.now() / 1000);
   const randomSuffix = Math.floor(Math.random() * 10000);
   const id = timestamp + randomSuffix;
 
@@ -837,8 +877,49 @@ export async function createAd(adData: NewAd) {
     createdBy: (adData as any).createdBy ?? (adData as any).created_by,
   };
 
-  // Insert into the main ads table
-  const result = await db.insert(ads).values(mapped as any).returning({ id: ads.id });
+  // If status is 'active', insert directly into approved_ads
+  if (adData.status === 'active') {
+    const result = await db.insert(approvedAds).values({
+      ...mapped,
+      status: 'active' as any,
+      approvedAt: new Date(),
+      approvedBy: mapped.createdBy,
+    } as any).returning({ id: approvedAds.id });
+    return result[0]?.id;
+  } else {
+    // Otherwise, insert into pending_ads
+    const result = await db.insert(pendingAds).values({
+      ...mapped,
+      submittedAt: new Date(),
+    } as any).returning({ id: pendingAds.id });
+    return result[0]?.id;
+  }
+}
+
+// Create pending ad (for user submissions)
+export async function createPendingAd(adData: NewAd) {
+  // Generate a unique ID for Xata Lite compatibility
+  const timestamp = Math.floor(Date.now() / 1000);
+  const randomSuffix = Math.floor(Math.random() * 10000);
+  const id = timestamp + randomSuffix;
+
+  // Map snake_case input to camelCase schema fields and provide defaults
+  const mapped = {
+    id: id,
+    title: (adData as any).title,
+    description: (adData as any).description,
+    imageUrl: (adData as any).imageUrl ?? (adData as any).image_url ?? null,
+    linkUrl: (adData as any).linkUrl ?? (adData as any).link_url ?? null,
+    category: (adData as any).category,
+    priority: (adData as any).priority ?? 1,
+    startDate: (adData as any).startDate ?? (adData as any).start_date ?? new Date(),
+    endDate: (adData as any).endDate ?? (adData as any).end_date ?? null,
+    createdBy: (adData as any).createdBy ?? (adData as any).created_by,
+    submittedAt: new Date(),
+  };
+
+  // Insert into pending ads table
+  const result = await db.insert(pendingAds).values(mapped as any).returning({ id: pendingAds.id });
   return result[0]?.id;
 }
 
@@ -848,19 +929,19 @@ export async function getAds(filters?: {
   limit?: number;
 }) {
   try {
-    // Use the main ads table directly (simplified approach)
+    // Fetch from approved ads table only
     const conditions: any[] = [];
-    if (filters?.status) conditions.push(eq(ads.status, filters.status as any));
-    if (filters?.category) conditions.push(eq(ads.category, filters.category));
+    if (filters?.status) conditions.push(eq(approvedAds.status, filters.status as any));
+    if (filters?.category) conditions.push(eq(approvedAds.category, filters.category));
     
     const limitVal = filters?.limit || 50;
     
     const query = conditions.length
-      ? db.select().from(ads).where(and(...conditions))
-      : db.select().from(ads);
+      ? db.select().from(approvedAds).where(and(...conditions))
+      : db.select().from(approvedAds);
     
     return await query
-      .orderBy(desc(ads.priority), desc(ads.createdAt))
+      .orderBy(desc(approvedAds.priority), desc(approvedAds.createdAt))
       .limit(limitVal) as any;
       
   } catch (error: any) {
@@ -876,15 +957,17 @@ export async function getAdsForPage(pageType: 'scripts' | 'giveaways', limit?: n
     
     let filteredAds;
     if (pageType === 'scripts') {
-      // Show ads with category "both" or "scripts"
+      // Show ads with category "both", "general", or "scripts"
       filteredAds = allAds.filter((ad: any) => 
         ad.category?.toLowerCase() === "both" || 
+        ad.category?.toLowerCase() === "general" ||
         ad.category?.toLowerCase() === "scripts"
       );
     } else if (pageType === 'giveaways') {
-      // Show ads with category "both" or "giveaways"
+      // Show ads with category "both", "general", or "giveaways"
       filteredAds = allAds.filter((ad: any) => 
         ad.category?.toLowerCase() === "both" || 
+        ad.category?.toLowerCase() === "general" ||
         ad.category?.toLowerCase() === "giveaways"
       );
     } else {
@@ -901,40 +984,7 @@ export async function getAdsForPage(pageType: 'scripts' | 'giveaways', limit?: n
   }
 }
 
-export async function getAdById(id: number) {
-  try {
-    // Use the main ads table directly
-    const result = await db.select().from(ads).where(eq(ads.id, id)) as any;
-    return result[0] ?? null;
-  } catch (error: any) {
-    console.error('Error fetching ad by ID:', error);
-    throw error;
-  }
-}
-
-export async function updateAd(id: number, updateData: Partial<NewAd>) {
-  try {
-    const fields = Object.keys(updateData);
-    if (fields.length === 0) return null;
-    const updateObject: any = { updatedAt: new Date(), ...(updateData as any) };
-    const result = await db.update(ads).set(updateObject).where(eq(ads.id, id)).returning();
-    return result[0] ?? null;
-  } catch (error) {
-    console.error('Error updating ad:', error);
-    return null;
-  }
-}
-
-export async function deleteAd(id: number) {
-  try {
-    // Delete from the main ads table
-    const result = await db.delete(ads).where(eq(ads.id, id)).returning({ id: ads.id });
-    return result.length > 0;
-  } catch (error) {
-    console.error('Error deleting ad:', error);
-    return false;
-  }
-}
+// Old ad functions removed - using new approval system with pending_ads, approved_ads, rejected_ads
 
 // Admin ad management functions
 export async function getPendingAds(limit?: number): Promise<any[]> {
@@ -986,4 +1036,77 @@ export async function rejectAd(adId: number, adminId: string, rejectionReason: s
   });
   await db.delete(pendingAds).where(eq(pendingAds.id, adId));
   return true;
+}
+
+// Ad management functions
+export async function getAdById(id: number) {
+  try {
+    // Search across all ad tables
+    const approved = await db.select().from(approvedAds).where(eq(approvedAds.id, id)).limit(1);
+    if (approved.length > 0) return { ...approved[0], status: 'approved' };
+    
+    const pending = await db.select().from(pendingAds).where(eq(pendingAds.id, id)).limit(1);
+    if (pending.length > 0) return { ...pending[0], status: 'pending' };
+    
+    const rejected = await db.select().from(rejectedAds).where(eq(rejectedAds.id, id)).limit(1);
+    if (rejected.length > 0) return { ...rejected[0], status: 'rejected' };
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching ad:', error);
+    return null;
+  }
+}
+
+export async function updateAd(id: number, updateData: any) {
+  try {
+    // Update in approved ads table (most common case)
+    const result = await db.update(approvedAds)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(approvedAds.id, id))
+      .returning();
+    
+    if (result.length > 0) return result[0];
+    
+    // Try pending ads
+    const pendingResult = await db.update(pendingAds)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(pendingAds.id, id))
+      .returning();
+    
+    return pendingResult[0] || null;
+  } catch (error) {
+    console.error('Error updating ad:', error);
+    return null;
+  }
+}
+
+export async function deleteAd(id: number) {
+  try {
+    // Try to delete from all tables
+    const approvedResult = await db.delete(approvedAds).where(eq(approvedAds.id, id)).returning();
+    if (approvedResult.length > 0) return true;
+    
+    const pendingResult = await db.delete(pendingAds).where(eq(pendingAds.id, id)).returning();
+    if (pendingResult.length > 0) return true;
+    
+    const rejectedResult = await db.delete(rejectedAds).where(eq(rejectedAds.id, id)).returning();
+    return rejectedResult.length > 0;
+  } catch (error) {
+    console.error('Error deleting ad:', error);
+    return false;
+  }
+}
+
+// Review functions
+export async function getUserScriptReview(scriptId: number, userId: string) {
+  return await db.select().from(scriptReviews)
+    .where(and(eq(scriptReviews.scriptId, scriptId), eq(scriptReviews.reviewerEmail, userId)))
+    .limit(1);
+}
+
+export async function getUserGiveawayReview(giveawayId: number, userId: string) {
+  return await db.select().from(giveawayReviews)
+    .where(and(eq(giveawayReviews.giveawayId, giveawayId), eq(giveawayReviews.reviewerEmail, userId)))
+    .limit(1);
 }

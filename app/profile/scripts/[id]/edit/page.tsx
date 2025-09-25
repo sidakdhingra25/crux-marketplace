@@ -82,11 +82,11 @@ const scriptCategories = [
 ]
 
 const frameworks = [
-  { value: "standalone", label: "Standalone" },
+  { value: "qbcore", label: "QBCore" },
+  { value: "qbox", label: "Qbox" },
   { value: "esx", label: "ESX" },
-  { value: "qb-core", label: "QB-Core" },
-  { value: "vRP", label: "vRP" },
-  { value: "other", label: "Other" },
+  { value: "ox", label: "OX" },
+  { value: "standalone", label: "Standalone" },
 ]
 
 export default function EditScriptPage() {

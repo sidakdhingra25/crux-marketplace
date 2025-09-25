@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { updateScript, updateGiveaway, getScripts, getGiveaways } from "@/lib/database-new"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,12 +25,26 @@ export default function EditProductsPage() {
   useEffect(() => {
     // Fetch user's scripts and giveaways
     async function fetchData() {
-      // You may want to filter by seller_email/creator_email
-      const allScripts = await getScripts()
-      const allGiveaways = await getGiveaways()
-      const userEmail = getUserEmail()
-      setScripts(allScripts.filter((s: any) => s.seller_email === userEmail))
-      setGiveaways(allGiveaways.filter((g: any) => g.creator_email === userEmail))
+      try {
+        const [scriptsRes, giveawaysRes] = await Promise.all([
+          fetch('/api/scripts'),
+          fetch('/api/giveaways')
+        ]);
+        
+        if (scriptsRes.ok) {
+          const scriptsData = await scriptsRes.json();
+          const userEmail = getUserEmail();
+          setScripts(scriptsData.scripts?.filter((s: any) => s.seller_email === userEmail) || []);
+        }
+        
+        if (giveawaysRes.ok) {
+          const giveawaysData = await giveawaysRes.json();
+          const userEmail = getUserEmail();
+          setGiveaways(giveawaysData.giveaways?.filter((g: any) => g.creator_email === userEmail) || []);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
     }
     fetchData()
   }, [])
@@ -50,13 +63,30 @@ export default function EditProductsPage() {
     setLoading(true)
     try {
       if (editing?.type === "script") {
-        await updateScript(editing.id, form)
-        setScripts((prev) => prev.map((s) => (s.id === editing.id ? { ...s, ...form } : s)))
+        const response = await fetch(`/api/scripts/${editing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        });
+        if (response.ok) {
+          setScripts((prev) => prev.map((s) => (s.id === editing.id ? { ...s, ...form } : s)))
+          setMessage("Script updated successfully!")
+        } else {
+          setMessage("Error updating script.")
+        }
       } else if (editing?.type === "giveaway") {
-        await updateGiveaway(editing.id, form)
-        setGiveaways((prev) => prev.map((g) => (g.id === editing.id ? { ...g, ...form } : g)))
+        const response = await fetch(`/api/giveaways/${editing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        });
+        if (response.ok) {
+          setGiveaways((prev) => prev.map((g) => (g.id === editing.id ? { ...g, ...form } : g)))
+          setMessage("Giveaway updated successfully!")
+        } else {
+          setMessage("Error updating giveaway.")
+        }
       }
-      setMessage("Saved!")
       setEditing(null)
     } catch (err) {
       setMessage("Error saving changes.")

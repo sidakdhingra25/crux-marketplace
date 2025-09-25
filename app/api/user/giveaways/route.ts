@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
     
     try {
       [pending, approved, rejected] = await Promise.all([
-        getPendingGiveaways(100),
-        getApprovedGiveaways(100),
-        getRejectedGiveaways(100)
+        getPendingGiveaways(),
+        getApprovedGiveaways(),
+        getRejectedGiveaways()
       ]);
     } catch (error) {
       console.log("Approval tables don't exist yet, falling back to main giveaways table");

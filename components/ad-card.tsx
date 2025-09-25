@@ -272,7 +272,7 @@ export function useRandomAds(ads: Ad[], count: number = 1) {
       return
     }
 
-    const activeAds = ads.filter(ad => ad.status === 'active')
+    const activeAds = ads.filter(ad => ad.status === 'active' || ad.status === 'approved')
     if (activeAds.length === 0) {
       setRandomAds([])
       return

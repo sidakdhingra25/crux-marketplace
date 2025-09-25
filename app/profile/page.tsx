@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
+import AdsForm from "@/components/ads-form"
 
 interface Script {
   id: number
@@ -101,6 +102,7 @@ export default function ProfilePage() {
     totalEarnings: 0,
     totalEntries: 0,
   })
+  const [showAdsForm, setShowAdsForm] = useState(false)
 
   useEffect(() => {
     if (status !== "authenticated") return
@@ -177,7 +179,7 @@ export default function ProfilePage() {
   }
 
   const handleEditScript = (scriptId: number) => {
-    router.push(`/profile/scripts/${scriptId}/edit`)
+    router.push(`/scripts/submit?edit=${scriptId}`)
   }
 
   const handleEditGiveaway = (giveawayId: number) => {
@@ -263,6 +265,11 @@ export default function ProfilePage() {
       default:
         return "bg-gray-500/20 text-gray-400 border-gray-500/30"
     }
+  }
+
+  const handleAdCreated = () => {
+    // Refresh ads data after creating a new ad
+    fetchUserData()
   }
 
   if (status === "loading" || loading) {
@@ -686,7 +693,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-white">My Ads</h2>
                   <Button 
-                    onClick={() => router.push('/admin')}
+                    onClick={() => setShowAdsForm(true)}
                     className="bg-orange-600 hover:bg-orange-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -763,7 +770,7 @@ export default function ProfilePage() {
                         Start creating your first ad to promote your content
                       </p>
                       <Button 
-                        onClick={() => router.push('/admin')}
+                        onClick={() => setShowAdsForm(true)}
                         className="bg-orange-600 hover:bg-orange-700 text-white"
                       >
                         <Plus className="h-4 w-4 mr-2" />
@@ -924,6 +931,13 @@ export default function ProfilePage() {
         </div>
       </div>
       <Footer />
+      
+      {/* Ads Form Dialog */}
+      <AdsForm 
+        isOpen={showAdsForm}
+        onClose={() => setShowAdsForm(false)}
+        onSuccess={handleAdCreated}
+      />
     </>
   )
 }

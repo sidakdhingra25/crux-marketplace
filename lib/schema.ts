@@ -1,14 +1,13 @@
 import { pgTable, text, timestamp, boolean, integer, numeric, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// Enums
-// Updated roles to the requested set. Use lowercase identifiers for DB enum values.
-export const userRoleEnum = pgEnum('user_role', ['founder', 'verified_creator', 'crew', 'admin', 'moderator', 'user']);
-export const scriptStatusEnum = pgEnum('script_status', ['pending', 'approved', 'rejected']);
-export const giveawayDifficultyEnum = pgEnum('giveaway_difficulty', ['Easy', 'Medium', 'Hard']);
-export const giveawayStatusEnum = pgEnum('giveaway_status', ['active', 'ended', 'cancelled']);
-export const entryStatusEnum = pgEnum('entry_status', ['active', 'disqualified', 'winner']);
-export const adStatusEnum = pgEnum('ad_status', ['active', 'inactive', 'expired']);
+// Enums - temporarily disabled to avoid migration issues
+// export const userRoleEnum = pgEnum('user_role', ['founder', 'verified_creator', 'crew', 'admin', 'moderator', 'user']);
+// export const scriptStatusEnum = pgEnum('script_status', ['pending', 'approved', 'rejected']);
+// export const giveawayDifficultyEnum = pgEnum('giveaway_difficulty', ['Easy', 'Medium', 'Hard']);
+// export const giveawayStatusEnum = pgEnum('giveaway_status', ['active', 'ended', 'cancelled']);
+// export const entryStatusEnum = pgEnum('entry_status', ['active', 'disqualified', 'winner']);
+// export const adStatusEnum = pgEnum('ad_status', ['active', 'inactive', 'expired']);
 
 // Users table
 export const users = pgTable('users', {
@@ -30,7 +29,7 @@ const baseScriptFields = {
   price: numeric('price').notNull(),
   originalPrice: numeric('original_price'),
   category: text('category').notNull(),
-  framework: text('framework'),
+  framework: text('framework').array().default([]),
   seller_name: text('seller_name').notNull(),
   seller_email: text('seller_email').notNull(),
   tags: text('tags').array().default([]),
@@ -76,7 +75,7 @@ export const rejectedScripts = pgTable('rejected_scripts', {
 // Legacy scripts table (for backward compatibility)
 export const scripts = pgTable('scripts', {
   ...baseScriptFields,
-  status: scriptStatusEnum('status').default('pending'),
+  status: text('status').default('pending'),
 });
 
 // Base giveaway fields (common to all giveaway types)
@@ -88,7 +87,7 @@ const baseGiveawayFields = {
   category: text('category').notNull(),
   endDate: text('end_date').notNull(),
   maxEntries: integer('max_entries'),
-  difficulty: giveawayDifficultyEnum('difficulty').notNull(),
+  difficulty: text('difficulty').notNull(),
   featured: boolean('featured').default(false),
   autoAnnounce: boolean('auto_announce').default(false),
   creatorName: text('creator_name').notNull(),
@@ -99,7 +98,7 @@ const baseGiveawayFields = {
   coverImage: text('cover_image'),
   tags: text('tags').array().default([]),
   rules: text('rules').array().default([]),
-  status: giveawayStatusEnum('status').default('active'),
+  status: text('status').default('active'),
   entriesCount: integer('entries_count').default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -138,7 +137,7 @@ export const giveaways = pgTable('giveaways', {
   category: text('category').notNull(),
   endDate: text('end_date').notNull(),
   maxEntries: integer('max_entries'),
-  difficulty: giveawayDifficultyEnum('difficulty').notNull(),
+  difficulty: text('difficulty').notNull(),
   featured: boolean('featured').default(false),
   autoAnnounce: boolean('auto_announce').default(false),
   creatorName: text('creator_name').notNull(),
@@ -149,7 +148,7 @@ export const giveaways = pgTable('giveaways', {
   coverImage: text('cover_image'),
   tags: text('tags').array().default([]),
   rules: text('rules').array().default([]),
-  status: giveawayStatusEnum('status').default('active'),
+  status: text('status').default('active'),
   entriesCount: integer('entries_count').default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -187,7 +186,7 @@ export const giveawayEntries = pgTable('giveaway_entries', {
   userName: text('user_name'),
   userEmail: text('user_email'),
   entryDate: timestamp('entry_date').defaultNow(),
-  status: entryStatusEnum('status').default('active'),
+  status: text('status').default('active'),
   pointsEarned: integer('points_earned').default(0),
   requirementsCompleted: text('requirements_completed').array().default([]),
   createdAt: timestamp('created_at').defaultNow(),
@@ -223,22 +222,7 @@ export const scriptReviews = pgTable('script_reviews', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
-// Ads table
-export const ads = pgTable('ads', {
-  id: integer('id').primaryKey().notNull(),
-  title: text('title').notNull(),
-  description: text('description').notNull(),
-  imageUrl: text('image_url'),
-  linkUrl: text('link_url'),
-  category: text('category').notNull(),
-  status: adStatusEnum('status').default('active'),
-  priority: integer('priority').default(1),
-  startDate: timestamp('start_date').defaultNow(),
-  endDate: timestamp('end_date'),
-  createdBy: text('created_by').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
+// Old ads table removed - using new approval system with pending_ads, approved_ads, rejected_ads
 
 // Base ad fields for approval system
 const baseAdFields = {
@@ -266,7 +250,7 @@ export const pendingAds = pgTable('pending_ads', {
 // Approved ads (live)
 export const approvedAds = pgTable('approved_ads', {
   ...baseAdFields,
-  status: adStatusEnum('status').default('active'),
+  status: text('status').default('active'),
   approvedAt: timestamp('approved_at').defaultNow(),
   approvedBy: text('approved_by'),
   adminNotes: text('admin_notes'),
@@ -341,5 +325,7 @@ export type GiveawayReview = typeof giveawayReviews.$inferSelect;
 export type NewGiveawayReview = typeof giveawayReviews.$inferInsert;
 export type ScriptReview = typeof scriptReviews.$inferSelect;
 export type NewScriptReview = typeof scriptReviews.$inferInsert;
-export type Ad = typeof ads.$inferSelect;
-export type NewAd = typeof ads.$inferInsert;
+export type Ad = typeof approvedAds.$inferSelect;
+export type NewAd = typeof approvedAds.$inferInsert;
+export type PendingAd = typeof pendingAds.$inferSelect;
+export type NewPendingAd = typeof pendingAds.$inferInsert;

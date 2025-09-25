@@ -93,7 +93,7 @@ export default function ScriptsPage() {
     categoryName: string
     seller: string
     discount: number
-    framework?: string
+    framework?: string[]
     priceCategory: string
     tags: string[]
     lastUpdated: string
@@ -110,7 +110,7 @@ export default function ScriptsPage() {
         console.log("Loading scripts...")
         const [scriptsRes, adsRes] = await Promise.all([
           fetch(`/api/scripts`, { cache: "no-store" }),
-          fetch(`/api/ads?status=active&category=scripts`, { cache: "no-store" })
+          fetch(`/api/ads/scripts`, { cache: "no-store" })
         ])
         
         if (scriptsRes.ok) {
@@ -134,7 +134,7 @@ export default function ScriptsPage() {
               categoryName: s.category,
               seller: s.seller_name,
               discount: s.original_price ? Math.max(0, Math.round(((Number(s.original_price) - Number(s.price)) / Number(s.original_price)) * 100)) : 0,
-              framework: s.framework,
+              framework: Array.isArray(s.framework) ? s.framework : (s.framework ? [s.framework] : []),
               priceCategory: Number(s.price) <= 15 ? "Budget" : Number(s.price) <= 30 ? "Standard" : "Premium",
               tags: (s.tags || []) as string[],
               lastUpdated: s.last_updated,
@@ -166,7 +166,14 @@ export default function ScriptsPage() {
     { id: "core", name: "Core" },
   ]
 
-  const frameworks = ["QBCore", "ESX", "Standalone", "vRP", "Custom"]
+  const frameworks = [
+    { value: "All Frameworks", label: "All Frameworks" },
+    { value: "qbcore", label: "QBCore" },
+    { value: "qbox", label: "Qbox" },
+    { value: "esx", label: "ESX" },
+    { value: "ox", label: "OX" },
+    { value: "standalone", label: "Standalone" }
+  ]
   const priceCategories = ["Budget", "Standard", "Premium"]
 
   // Real-time filtering logic
@@ -185,8 +192,10 @@ export default function ScriptsPage() {
         return false
       }
 
-      if (selectedFrameworks.length > 0 && script.framework && !selectedFrameworks.includes(script.framework)) {
-        return false
+      if (selectedFrameworks.length > 0 && !selectedFrameworks.includes("All Frameworks")) {
+        if (!script.framework || script.framework.length === 0) return false
+        const hasMatch = script.framework.some(fw => selectedFrameworks.includes(fw))
+        if (!hasMatch) return false
       }
 
       if (selectedPriceCategories.length > 0 && !selectedPriceCategories.includes(script.priceCategory)) {
@@ -481,7 +490,7 @@ export default function ScriptsPage() {
                     <CollapsibleContent className="space-y-2 mt-2">
                       {frameworks.map((framework, index) => (
                         <motion.div
-                          key={framework}
+                          key={framework.value}
                           className="flex items-center space-x-2"
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -489,15 +498,15 @@ export default function ScriptsPage() {
                           whileHover={{ x: 5 }}
                         >
                           <Checkbox
-                            id={`framework-${framework}`}
-                            checked={selectedFrameworks.includes(framework)}
-                            onCheckedChange={(checked) => handleFrameworkChange(framework, checked as boolean)}
+                            id={`framework-${framework.value}`}
+                            checked={selectedFrameworks.includes(framework.value)}
+                            onCheckedChange={(checked) => handleFrameworkChange(framework.value, checked as boolean)}
                           />
                           <label
-                            htmlFor={`framework-${framework}`}
+                            htmlFor={`framework-${framework.value}`}
                             className="text-sm text-gray-300 hover:text-white transition-colors cursor-pointer"
                           >
-                            {framework}
+                            {framework.label}
                           </label>
                         </motion.div>
                       ))}
@@ -718,31 +727,34 @@ export default function ScriptsPage() {
                           </Badge>
                         </motion.div>
                       ))}
-                      {selectedFrameworks.map((framework, index) => (
-                        <motion.div
-                          key={framework}
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.8 }}
-                          transition={{ delay: index * 0.05 }}
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <Badge
-                            variant="secondary"
-                            className="bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center gap-1 backdrop-blur-sm"
+                      {selectedFrameworks.map((framework, index) => {
+                        const frameworkObj = frameworks.find(f => f.value === framework)
+                        return (
+                          <motion.div
+                            key={framework}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ delay: index * 0.05 }}
+                            whileHover={{ scale: 1.05 }}
                           >
-                            {framework}
-                            <motion.button
-                              onClick={() => removeFilter("framework", framework)}
-                              className="hover:text-white transition-colors"
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.8 }}
+                            <Badge
+                              variant="secondary"
+                              className="bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center gap-1 backdrop-blur-sm"
                             >
-                              <X className="h-3 w-3" />
-                            </motion.button>
-                          </Badge>
-                        </motion.div>
-                      ))}
+                              {frameworkObj?.label || framework}
+                              <motion.button
+                                onClick={() => removeFilter("framework", framework)}
+                                className="hover:text-white transition-colors"
+                                whileHover={{ scale: 1.2 }}
+                                whileTap={{ scale: 0.8 }}
+                              >
+                                <X className="h-3 w-3" />
+                              </motion.button>
+                            </Badge>
+                          </motion.div>
+                        )
+                      })}
                       {selectedPriceCategories.map((category, index) => (
                         <motion.div
                           key={category}
@@ -964,7 +976,11 @@ export default function ScriptsPage() {
                                 transition={{ delay: index * 0.05 + 0.1 }}
                                 whileHover={{ scale: 1.1 }}
                               >
-                                <Badge className="bg-black/80 text-white backdrop-blur-sm">{script.framework}</Badge>
+                                <div className="flex flex-wrap gap-1">
+                                  {script.framework?.map((fw, idx) => (
+                                    <Badge key={idx} className="bg-black/80 text-white backdrop-blur-sm text-xs">{fw}</Badge>
+                                  ))}
+                                </div>
                               </motion.div>
                             </div>
                           </CardHeader>

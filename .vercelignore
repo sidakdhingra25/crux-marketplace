@@ -1,9 +1,0 @@
-# Exclude large upload artifacts from deployment
-public/uploads/
-**/*.mp4
-**/*.mov
-**/*.mkv
-**/*.zip
-**/*.tar
-**/*.tar.gz
-

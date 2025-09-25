@@ -136,7 +136,7 @@ export default function GiveawaysPage() {
       try {
         const [giveawaysRes, adsRes] = await Promise.all([
           fetch(`/api/giveaways`, { cache: "no-store" }),
-          fetch(`/api/ads?status=active&category=giveaways`, { cache: "no-store" })
+          fetch(`/api/ads/giveaways`, { cache: "no-store" })
         ])
         
         if (giveawaysRes.ok) {

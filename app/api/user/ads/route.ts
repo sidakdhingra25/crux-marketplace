@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { createAd } = await import('@/lib/database-new');
-    const adId = await createAd({
+    const { createPendingAd } = await import('@/lib/database-new');
+    const adId = await createPendingAd({
       title: body.title,
       description: body.description,
       imageUrl: body.image_url,

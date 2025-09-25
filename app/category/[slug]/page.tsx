@@ -22,7 +22,7 @@ interface Script {
   price: number
   original_price?: number
   category: string
-  framework?: string
+  framework?: string[]
   seller_name: string
   seller_email: string
   seller_id?: string
@@ -124,7 +124,14 @@ export default function CategoryPage() {
     fetchScripts()
   }, [categorySlug])
 
-  const frameworks = ["All Frameworks", "QBCore", "ESX", "Standalone", "vRP", "Custom"]
+  const frameworks = [
+    { value: "All Frameworks", label: "All Frameworks" },
+    { value: "qbcore", label: "QBCore" },
+    { value: "qbox", label: "Qbox" },
+    { value: "esx", label: "ESX" },
+    { value: "ox", label: "OX" },
+    { value: "standalone", label: "Standalone" }
+  ]
   const priceCategories = ["Budget ($0-$15)", "Standard ($15-$30)", "Premium ($30+)"]
 
   const handleFrameworkChange = (framework: string, checked: boolean) => {
@@ -159,9 +166,9 @@ export default function CategoryPage() {
 
       // Framework filter
       if (selectedFrameworks.length > 0 && !selectedFrameworks.includes("All Frameworks")) {
-        if (!script.framework || !selectedFrameworks.includes(script.framework)) {
-          return false
-        }
+        if (!script.framework || script.framework.length === 0) return false
+        const hasMatch = script.framework.some((fw) => selectedFrameworks.includes(fw))
+        if (!hasMatch) return false
       }
 
       // Price range filter
@@ -298,15 +305,15 @@ export default function CategoryPage() {
                     <h3 className="text-white font-semibold mb-3">Framework</h3>
                     <div className="space-y-2">
                       {frameworks.map((framework) => (
-                        <div key={framework} className="flex items-center space-x-2">
+                        <div key={framework.value} className="flex items-center space-x-2">
                           <Checkbox
-                            id={framework}
-                            checked={selectedFrameworks.includes(framework)}
-                            onCheckedChange={(checked) => handleFrameworkChange(framework, checked as boolean)}
+                            id={framework.value}
+                            checked={selectedFrameworks.includes(framework.value)}
+                            onCheckedChange={(checked) => handleFrameworkChange(framework.value, checked as boolean)}
                             className="border-gray-600"
                           />
-                          <label htmlFor={framework} className="text-sm text-gray-300">
-                            {framework}
+                          <label htmlFor={framework.value} className="text-sm text-gray-300">
+                            {framework.label}
                           </label>
                         </div>
                       ))}
@@ -394,11 +401,15 @@ export default function CategoryPage() {
                         <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
                           {script.category}
                         </Badge>
-                        {script.framework && (
-                          <Badge variant="secondary" className="bg-gray-700/50 text-gray-300">
-                            {script.framework}
-                          </Badge>
-                        )}
+                         {script.framework && script.framework.length > 0 && (
+                           <div className="flex flex-wrap gap-1">
+                             {script.framework.map((fw, idx) => (
+                               <Badge key={idx} variant="secondary" className="bg-gray-700/50 text-gray-300 text-xs">
+                                 {fw}
+                               </Badge>
+                             ))}
+                           </div>
+                         )}
                       </div>
                       
                       <Link href={`/script/${script.id}`}>

@@ -41,12 +41,24 @@ export async function PATCH(
       return NextResponse.json({ error: "Script not found" }, { status: 404 })
     }
 
-    // Check if user owns this script
-    if (script.seller_id !== session.user?.id) {
+    // Log context
+    const userRoles = (session.user as any)?.roles || []
+    console.log('PATCH /api/scripts/[id]', {
+      scriptId,
+      user: { id: (session.user as any)?.id, email: session.user?.email, roles: userRoles },
+      scriptSellerEmail: (script as any)?.seller_email,
+    })
+
+    // Authorization: owner by email or admin/founder
+    const isAdmin = Array.isArray(userRoles) && (userRoles.includes('admin') || userRoles.includes('founder'))
+    const isOwner = (script as any)?.seller_email && session.user?.email && (script as any).seller_email === session.user.email
+    if (!isAdmin && !isOwner) {
+      console.warn('PATCH denied: not owner/admin', { isAdmin, isOwner })
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     const body = await request.json()
+    console.log('PATCH body:', body)
     
     // Update the script
     const updatedScript = await updateScript(scriptId, {
@@ -74,14 +86,12 @@ export async function PATCH(
     })
 
     if (!updatedScript) {
+      console.error('PATCH updateScript returned null')
       return NextResponse.json({ error: "Failed to update script" }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Script updated successfully",
-      script: updatedScript
-    })
+    console.log('PATCH success:', { id: updatedScript.id })
+    return NextResponse.json({ success: true, message: "Script updated successfully", script: updatedScript })
   } catch (error) {
     console.error("Error updating script:", error)
     return NextResponse.json({ error: "Failed to update script" }, { status: 500 })
@@ -106,8 +116,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Script not found" }, { status: 404 })
     }
 
-    // Check if user owns this script
-    if (script.seller_id !== session.user?.id) {
+    // Authorization: owner by email or admin/founder
+    const userRoles = (session.user as any)?.roles || []
+    const isAdmin = Array.isArray(userRoles) && (userRoles.includes('admin') || userRoles.includes('founder'))
+    const isOwner = (script as any)?.seller_email && session.user?.email && (script as any).seller_email === session.user.email
+    if (!isAdmin && !isOwner) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 

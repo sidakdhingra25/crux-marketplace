@@ -57,6 +57,20 @@
       "when": 1756842000000,
       "tag": "0007_fix_giveaway_foreign_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758730225104,
+      "tag": "0008_outstanding_lizard",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758731224366,
+      "tag": "0009_dark_mister_sinister",
+      "breakpoints": true
     }
   ]
 }

@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       price: body.price,
       originalPrice: body.original_price || null,
       category: body.category,
+      // Accept both single string and array; normalized in DB layer
       framework: body.framework,
       seller_name: session.user?.name || "Unknown Seller",
       seller_email: session.user?.email || "",
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
 
     const filters = {
       category: category || undefined,
-      framework: framework || undefined,
+      framework: framework ? framework.split(',') : undefined,
       status: status === "all" ? "approved" : status, // Default to approved for public access
       featured: featured ? featured === "true" : undefined,
       limit: limit ? Number.parseInt(limit) : undefined,
@@ -102,7 +103,8 @@ export async function GET(request: NextRequest) {
 
     const scripts = await getScripts(filters)
     console.log("Scripts API - Found scripts:", scripts.length)
-    console.log("Scripts API - Script statuses:", scripts.map(s => ({ id: s.id, title: s.title, status: s.status })))
+    // status may not exist on approved_scripts selection; avoid strict access
+    console.log("Scripts API - Script ids:", scripts.map(s => ({ id: (s as any).id, title: (s as any).title })))
 
     return NextResponse.json({ scripts })
   } catch (error: any) {

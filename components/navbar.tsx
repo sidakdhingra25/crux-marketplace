@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Search, ShoppingCart, User, Menu, Bell } from "lucide-react"
+import { Search, User, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -13,8 +13,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [cartCount] = useState(3)
-  const [notificationCount] = useState(2)
   const { data: session, status } = useSession()
 
   return (
@@ -104,39 +102,6 @@ export default function Navbar() {
               />
             </div>
 
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="relative">
-              <Button
-                variant="outline"
-                size="icon"
-                className="bg-gray-900/50 border-gray-700/50 text-white hover:bg-orange-500 hover:border-orange-500 backdrop-blur-sm transition-all duration-300"
-              >
-                <Bell className="h-4 w-4" />
-              </Button>
-              {notificationCount > 0 && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-2 -right-2">
-                  <Badge className="bg-red-500 text-white text-xs px-1 min-w-[1.25rem] h-5 flex items-center justify-center">
-                    {notificationCount}
-                  </Badge>
-                </motion.div>
-              )}
-            </motion.div>
-
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="relative">
-              <Button
-                variant="outline"
-                size="icon"
-                className="bg-gray-900/50 border-gray-700/50 text-white hover:bg-orange-500 hover:border-orange-500 backdrop-blur-sm transition-all duration-300"
-              >
-                <ShoppingCart className="h-4 w-4" />
-              </Button>
-              {cartCount > 0 && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-2 -right-2">
-                  <Badge className="bg-orange-500 text-white text-xs px-1 min-w-[1.25rem] h-5 flex items-center justify-center">
-                    {cartCount}
-                  </Badge>
-                </motion.div>
-              )}
-            </motion.div>
 
             {status === "authenticated" ? (
               <div className="flex items-center gap-2">

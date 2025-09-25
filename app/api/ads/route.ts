@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/auth"
-import { createAd, getAds, hasRole, hasAnyRole } from "@/lib/database-new"
+import { getAds, hasRole, hasAnyRole } from "@/lib/database-new"
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message,
-        adId,
+        // adId,
         status: approvalStatus,
       },
       { status: 201 },

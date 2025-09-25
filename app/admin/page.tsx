@@ -69,6 +69,7 @@ interface Giveaway {
   status: string
   creator_name: string
   created_at: string
+  rejection_reason?: string
 }
 
 interface Ad {
@@ -79,6 +80,7 @@ interface Ad {
   status: string
   priority: number
   created_at: string
+  rejection_reason?: string
 }
 
 // Updated role options to the requested set. Values should match DB enum (lowercase/underscored).
@@ -117,21 +119,28 @@ export default function AdminPage() {
   const [activeGiveawayFilter, setActiveGiveawayFilter] = useState("all")
   const [rejectingGiveaway, setRejectingGiveaway] = useState<number | null>(null)
   const [giveawayRejectionReason, setGiveawayRejectionReason] = useState("")
+  const [activeAdFilter, setActiveAdFilter] = useState("all")
+  const [rejectingAd, setRejectingAd] = useState<number | null>(null)
+  const [adRejectionReason, setAdRejectionReason] = useState("")
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = async () => {
+  const loadData = async (adsFilter?: string) => {
     try {
       setLoading(true)
       console.log("Loading admin data...")
+      
+      const adsUrl = adsFilter && adsFilter !== "all" 
+        ? `/api/admin/ads?type=${adsFilter}`
+        : "/api/admin/ads"
       
       const [usersRes, scriptsRes, giveawaysRes, adsRes] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/scripts"),
         fetch("/api/admin/giveaways"),
-        fetch("/api/ads"),
+        fetch(adsUrl),
       ])
 
       console.log("API responses:", {
@@ -164,7 +173,7 @@ export default function AdminPage() {
 
       if (adsRes.ok) {
         const adsData = await adsRes.json()
-        setAds(adsData.ads || [])
+        setAds(adsData.data || [])
       }
     } catch (error) {
       console.error("Error loading data:", error)
@@ -375,6 +384,50 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error("Error updating giveaway:", error)
+    }
+  }
+
+  // Handle ad approval/rejection
+  const handleAdAction = async (adId: number, status: "approved" | "rejected") => {
+    try {
+      const updateData: any = { 
+        action: status === "approved" ? "approve" : "reject",
+        adId 
+      }
+      
+      if (status === "rejected" && adRejectionReason) {
+        updateData.rejectionReason = adRejectionReason
+      }
+      
+      const response = await fetch("/api/admin/ads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        // Update local state
+        setAds(ads.map(ad => 
+          ad.id === adId 
+            ? { ...ad, status, rejection_reason: status === "rejected" ? adRejectionReason : undefined }
+            : ad
+        ))
+        
+        if (status === "rejected") {
+          setRejectingAd(null)
+          setAdRejectionReason("")
+        }
+        
+        // Reload data to get updated information
+        loadData()
+        
+        // If ad was approved, show success message
+        if (status === "approved") {
+          alert("Ad approved successfully!")
+        }
+      }
+    } catch (error) {
+      console.error("Error updating ad:", error)
     }
   }
 
@@ -811,6 +864,12 @@ export default function AdminPage() {
                               <span className="text-gray-400">Description:</span>
                               <p className="text-white text-sm mt-1 line-clamp-2">{giveaway.description}</p>
                             </div>
+                            {giveaway.status === "rejected" && giveaway.rejection_reason && (
+                              <div className="mt-3 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                <span className="text-red-400 text-sm font-medium">Rejection Reason:</span>
+                                <p className="text-red-200 text-sm mt-1">{giveaway.rejection_reason}</p>
+                              </div>
+                            )}
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <Badge 
@@ -917,7 +976,52 @@ export default function AdminPage() {
             </TabsContent>
 
             <TabsContent value="ads" className="mt-6">
-              <Card className="bg-gray-800/30 border-gray-700/50">
+              <div className="space-y-6">
+                {/* Filter Tabs */}
+                <div className="flex gap-2">
+                  <Button
+                    variant={activeAdFilter === "all" ? "default" : "outline"}
+                    onClick={() => {
+                      setActiveAdFilter("all")
+                      loadData("all")
+                    }}
+                    className={activeAdFilter === "all" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-600 text-gray-300"}
+                  >
+                    All Ads
+                  </Button>
+                  <Button
+                    variant={activeAdFilter === "pending" ? "default" : "outline"}
+                    onClick={() => {
+                      setActiveAdFilter("pending")
+                      loadData("pending")
+                    }}
+                    className={activeAdFilter === "pending" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-600 text-gray-300"}
+                  >
+                    Pending
+                  </Button>
+                  <Button
+                    variant={activeAdFilter === "approved" ? "default" : "outline"}
+                    onClick={() => {
+                      setActiveAdFilter("approved")
+                      loadData("approved")
+                    }}
+                    className={activeAdFilter === "approved" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-600 text-gray-300"}
+                  >
+                    Approved
+                  </Button>
+                  <Button
+                    variant={activeAdFilter === "rejected" ? "default" : "outline"}
+                    onClick={() => {
+                      setActiveAdFilter("rejected")
+                      loadData("rejected")
+                    }}
+                    className={activeAdFilter === "rejected" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-600 text-gray-300"}
+                  >
+                    Rejected
+                  </Button>
+                </div>
+
+                <Card className="bg-gray-800/30 border-gray-700/50">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -926,7 +1030,7 @@ export default function AdminPage() {
                         Advertisement Management
                       </CardTitle>
                       <CardDescription className="text-gray-400">
-                        Create and manage advertisements
+                        Review and manage advertisement submissions
                       </CardDescription>
                     </div>
                     <Dialog open={showAdDialog} onOpenChange={setShowAdDialog}>
@@ -1015,7 +1119,16 @@ export default function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {ads.map((ad) => (
+                    {ads
+                      .filter(ad => {
+                        if (activeAdFilter === "all") return true
+                        // For pending ads, they might not have a status field or it might be null
+                        if (activeAdFilter === "pending") return !ad.status || ad.status === "pending"
+                        if (activeAdFilter === "approved") return ad.status === "approved" || ad.status === "active"
+                        if (activeAdFilter === "rejected") return ad.status === "rejected"
+                        return true
+                      })
+                      .map((ad) => (
                       <div key={ad.id} className="flex items-center justify-between p-4 rounded-lg bg-gray-700/30">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-500/20 to-yellow-400/20 flex items-center justify-center">
@@ -1032,39 +1145,89 @@ export default function AdminPage() {
                                 Priority: {ad.priority}
                               </Badge>
                             </div>
+                            {ad.rejection_reason && (
+                              <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 rounded text-red-300 text-sm">
+                                <strong>Rejection Reason:</strong> {ad.rejection_reason}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className={ad.status === "active" ? "bg-green-500 text-white" : "bg-gray-500 text-white"}>
-                            {ad.status}
+                          <Badge className={
+                            ad.status === "approved" || ad.status === "active" ? "bg-green-500 text-white" :
+                            ad.status === "rejected" ? "bg-red-500 text-white" :
+                            "bg-yellow-500 text-white"
+                          }>
+                            {ad.status || "pending"}
                           </Badge>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="border-red-500/50 text-red-400 hover:text-red-300">
-                                <Trash2 className="h-4 w-4" />
+                          {(!ad.status || ad.status === "pending") && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleAdAction(ad.id, "approved")}
+                                className="bg-green-500 hover:bg-green-600 text-white"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="bg-gray-800 border-gray-700">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="text-white">Delete Advertisement</AlertDialogTitle>
-                                <AlertDialogDescription className="text-gray-400">
-                                  Are you sure you want to delete this advertisement? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel className="border-gray-600 text-gray-300">Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteAd(ad.id)} className="bg-red-500 hover:bg-red-600">
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setRejectingAd(ad.id)}
+                                className="border-red-500/50 text-red-400 hover:text-red-300"
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Rejection Dialog */}
+              <Dialog open={rejectingAd !== null} onOpenChange={() => setRejectingAd(null)}>
+                <DialogContent className="bg-gray-800 border-gray-700">
+                  <DialogHeader>
+                    <DialogTitle className="text-white">Reject Advertisement</DialogTitle>
+                    <DialogDescription className="text-gray-400">
+                      Please provide a reason for rejecting this advertisement.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Textarea
+                      value={adRejectionReason}
+                      onChange={(e) => setAdRejectionReason(e.target.value)}
+                      placeholder="Enter rejection reason..."
+                      className="bg-gray-700 border-gray-600 text-white"
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleAdAction(rejectingAd!, "rejected")}
+                        className="bg-red-500 hover:bg-red-600 text-white"
+                        disabled={!adRejectionReason.trim()}
+                      >
+                        Reject Advertisement
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setRejectingAd(null)
+                          setAdRejectionReason("")
+                        }}
+                        className="border-gray-600 text-gray-300"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -1137,6 +1300,46 @@ export default function AdminPage() {
               <Button 
                 variant="outline" 
                 onClick={() => setRejectingScript(null)}
+                className="border-gray-600 text-gray-300"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Giveaway Rejection Dialog */}
+      <Dialog open={!!rejectingGiveaway} onOpenChange={() => setRejectingGiveaway(null)}>
+        <DialogContent className="bg-gray-800 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Reject Giveaway</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Please provide a reason for rejecting this giveaway
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-gray-300">Rejection Reason</label>
+              <Textarea
+                value={giveawayRejectionReason}
+                onChange={(e) => setGiveawayRejectionReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                className="bg-gray-700 border-gray-600 text-white"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => handleGiveawayAction(rejectingGiveaway!, "rejected")}
+                className="bg-red-500 hover:bg-red-600"
+                disabled={!giveawayRejectionReason.trim()}
+              >
+                Reject Giveaway
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setRejectingGiveaway(null)}
                 className="border-gray-600 text-gray-300"
               >
                 Cancel

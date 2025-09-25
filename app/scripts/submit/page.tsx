@@ -2,9 +2,9 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, useInView } from "framer-motion"
 import {
   Upload,
@@ -68,6 +68,122 @@ const AnimatedParticles = () => {
 export default function SubmitScriptPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const scriptId = searchParams.get('edit')
+
+  // All hooks must be called at the top level, before any conditional returns
+  const formRef = useRef(null)
+  const previewRef = useRef(null)
+  const formInView = useInView(formRef, { once: true })
+  const previewInView = useInView(previewRef, { once: true })
+  
+  // State declarations
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isLoadingScript, setIsLoadingScript] = useState(false)
+
+  // Form state (must be declared before effects that reference setters)
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    price: "",
+    originalPrice: "",
+    category: "",
+    framework: [] as string[],
+    sellerName: "",
+    sellerEmail: "",
+    version: "1.0.0",
+    demoUrl: "",
+    documentationUrl: "",
+    supportUrl: "",
+    featured: false,
+  })
+
+  const [features, setFeatures] = useState([{ id: 1, text: "" }])
+  const [requirements, setRequirements] = useState([{ id: 1, text: "" }])
+  const [tags, setTags] = useState([{ id: 1, text: "" }])
+  const [media, setMedia] = useState<{
+    images: string[]
+    videos: string[]
+    screenshots: string[]
+    coverImage: string | null
+    thumbnail: string | null
+  }>({
+    images: [],
+    videos: [],
+    screenshots: [],
+    coverImage: null,
+    thumbnail: null,
+  })
+
+  // Fetch script data for edit mode (runs after state is initialized)
+  useEffect(() => {
+    if (scriptId) {
+      setIsEditMode(true)
+      setIsLoadingScript(true)
+      
+      const fetchScript = async () => {
+        try {
+          const response = await fetch(`/api/scripts/${scriptId}`)
+          if (response.ok) {
+            const script = await response.json()
+            
+            // Populate form with existing script data
+            setFormData({
+              title: script.title || "",
+              description: script.description || "",
+              price: script.price?.toString() || "",
+              originalPrice: script.original_price?.toString() || "",
+              category: script.category || "",
+              framework: Array.isArray(script.framework) ? script.framework : (script.framework ? [script.framework] : []),
+              sellerName: script.seller_name || "",
+              sellerEmail: script.seller_email || "",
+              version: script.version || "1.0.0",
+              demoUrl: script.demo_url || "",
+              documentationUrl: script.documentation_url || "",
+              supportUrl: script.support_url || "",
+              featured: script.featured || false,
+            })
+            
+            // Set features
+            if (script.features && script.features.length > 0) {
+              setFeatures(script.features.map((feature: string, index: number) => ({ id: index + 1, text: feature })))
+            }
+            
+            // Set requirements
+            if (script.requirements && script.requirements.length > 0) {
+              setRequirements(script.requirements.map((req: string, index: number) => ({ id: index + 1, text: req })))
+            }
+            
+            // Set tags
+            if (script.tags && script.tags.length > 0) {
+              setTags(script.tags.map((tag: string, index: number) => ({ id: index + 1, text: tag })))
+            }
+            
+            // Set media
+            setMedia({
+              images: script.images || [],
+              videos: script.videos || [],
+              screenshots: script.screenshots || [],
+              coverImage: script.cover_image || null,
+              thumbnail: null,
+            })
+          } else {
+            console.error('Failed to fetch script')
+            router.push('/scripts/submit')
+          }
+        } catch (error) {
+          console.error('Error fetching script:', error)
+          router.push('/scripts/submit')
+        } finally {
+          setIsLoadingScript(false)
+        }
+      }
+      
+      fetchScript()
+    }
+  }, [scriptId, router])
 
   // Check if user has verified_creator role
   const hasVerifiedCreatorRole = session?.user && 
@@ -75,7 +191,7 @@ export default function SubmitScriptPage() {
     (session.user as any).roles.includes('verified_creator')
 
   // Redirect if not authenticated or doesn't have verified_creator role
-  if (status === "loading") {
+  if (status === "loading" || isLoadingScript) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
 
@@ -114,48 +230,6 @@ export default function SubmitScriptPage() {
     )
   }
 
-  const formRef = useRef(null)
-  const previewRef = useRef(null)
-
-  const formInView = useInView(formRef, { once: true })
-  const previewInView = useInView(previewRef, { once: true })
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    originalPrice: "",
-    category: "",
-    framework: "",
-    sellerName: "",
-    sellerEmail: "",
-    version: "1.0.0",
-    demoUrl: "",
-    documentationUrl: "",
-    supportUrl: "",
-    featured: false,
-  })
-
-  const [features, setFeatures] = useState([{ id: 1, text: "" }])
-  const [requirements, setRequirements] = useState([{ id: 1, text: "" }])
-  const [tags, setTags] = useState([{ id: 1, text: "" }])
-  const [media, setMedia] = useState<{
-    images: string[]
-    videos: string[]
-    screenshots: string[]
-    coverImage: string | null
-    thumbnail: string | null
-  }>({
-    images: [],
-    videos: [],
-    screenshots: [],
-    coverImage: null,
-    thumbnail: null,
-  })
-
-  const [errors, setErrors] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
   const scriptCategories = [
     { value: "economy", label: "Economy & Banking" },
     { value: "vehicles", label: "Vehicles & Transportation" },
@@ -171,10 +245,10 @@ export default function SubmitScriptPage() {
 
   const frameworks = [
     { value: "qbcore", label: "QBCore" },
+    { value: "qbox", label: "Qbox" },
     { value: "esx", label: "ESX" },
+    { value: "ox", label: "OX" },
     { value: "standalone", label: "Standalone" },
-    { value: "vrp", label: "vRP" },
-    { value: "custom", label: "Custom Framework" },
   ]
 
   const addFeature = () => {
@@ -348,23 +422,44 @@ export default function SubmitScriptPage() {
         status: "pending" as const,
       }
 
-      const response = await fetch("/api/scripts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(scriptData),
-      })
+      let response
+      if (isEditMode && scriptId) {
+        // Update existing script
+        console.log('PATCH submit payload', scriptData)
+        response = await fetch(`/api/scripts/${scriptId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(scriptData),
+        })
+        const debugText = await response.clone().text().catch(() => '')
+        console.log('PATCH response status', response.status, debugText)
+      } else {
+        // Create new script
+        response = await fetch("/api/scripts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(scriptData),
+        })
+      }
 
       if (response.ok) {
-        alert("Script submitted successfully! It will be reviewed before being published.")
-        // Reset form or redirect
+        if (isEditMode) {
+          alert("Script updated successfully!")
+          router.push('/profile')
+        } else {
+          alert("Script submitted successfully! It will be reviewed before being published.")
+          router.push('/profile')
+        }
       } else {
-        throw new Error("Failed to submit script")
+        throw new Error(isEditMode ? "Failed to update script" : "Failed to submit script")
       }
     } catch (error) {
       console.error("Error submitting script:", error)
-      alert("Error submitting script. Please try again.")
+      alert(isEditMode ? "Error updating script. Please try again." : "Error submitting script. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -440,9 +535,9 @@ export default function SubmitScriptPage() {
             <motion.div
               ref={formRef}
               className="lg:col-span-2 space-y-8"
-              initial={{ opacity: 0, x: -50 }}
-              animate={formInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.8 }}
+              initial={false}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
             >
               <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Basic Information */}
@@ -506,24 +601,28 @@ export default function SubmitScriptPage() {
                       </div>
 
                       <div>
-                        <Label htmlFor="framework" className="text-white font-medium">
-                          Framework *
-                        </Label>
-                        <Select
-                          value={formData.framework}
-                          onValueChange={(value) => setFormData({ ...formData, framework: value })}
-                        >
-                          <SelectTrigger className="mt-2 bg-gray-900/50 border-gray-700 text-white">
-                            <SelectValue placeholder="Select framework" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-gray-900 border-gray-700">
-                            {frameworks.map((framework) => (
-                              <SelectItem key={framework.value} value={framework.value}>
-                                {framework.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-white font-medium">Frameworks *</Label>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {frameworks.map((fw) => {
+                            const checked = formData.framework.includes(fw.value)
+                            return (
+                              <label key={fw.value} className="flex items-center gap-2 text-sm text-gray-200">
+                                <input
+                                  type="checkbox"
+                                  className="accent-orange-500"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? [...formData.framework, fw.value]
+                                      : formData.framework.filter((v) => v !== fw.value)
+                                    setFormData({ ...formData, framework: next })
+                                  }}
+                                />
+                                {fw.label}
+                              </label>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
 
@@ -986,12 +1085,12 @@ export default function SubmitScriptPage() {
                     {isSubmitting ? (
                       <>
                         <Settings className="mr-2 h-5 w-5 animate-spin" />
-                        Submitting...
+                        {isEditMode ? 'Updating...' : 'Submitting...'}
                       </>
                     ) : (
                       <>
                         <Sparkles className="mr-2 h-5 w-5" />
-                        Submit Script
+                        {isEditMode ? 'Update Script' : 'Submit Script'}
                       </>
                     )}
                   </Button>
@@ -1010,9 +1109,9 @@ export default function SubmitScriptPage() {
             <motion.div
               ref={previewRef}
               className="lg:col-span-1"
-              initial={{ opacity: 0, x: 50 }}
-              animate={previewInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.8 }}
+              initial={false}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
             >
               <div className="sticky top-24 space-y-6">
                 <Card className="bg-gray-800/30 border-gray-700/50 backdrop-blur-sm">
@@ -1082,9 +1181,9 @@ export default function SubmitScriptPage() {
                             {scriptCategories.find((c) => c.value === formData.category)?.label}
                           </Badge>
                         )}
-                        {formData.framework && (
+                        {formData.framework && formData.framework.length > 0 && (
                           <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
-                            {frameworks.find((f) => f.value === formData.framework)?.label}
+                            {formData.framework.map(fw => frameworks.find((f) => f.value === fw)?.label).filter(Boolean).join(', ')}
                           </Badge>
                         )}
                         {formData.featured && <Badge className="bg-yellow-500 text-black">Featured</Badge>}
